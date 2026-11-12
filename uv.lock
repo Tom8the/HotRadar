@@ -195,6 +195,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+browser-auth = [
+    { name = "playwright" },
+]
 dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -210,6 +213,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=44,<50" },
     { name = "fastapi", specifier = ">=0.115,<1" },
     { name = "httpx", specifier = ">=0.28,<1" },
+    { name = "playwright", marker = "extra == 'browser-auth'", specifier = ">=1.51,<2" },
     { name = "playwright", marker = "extra == 'session-export'", specifier = ">=1.51,<2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3,<10" },
@@ -220,7 +224,7 @@ requires-dist = [
     { name = "tzdata", specifier = ">=2025.2" },
     { name = "uvicorn", specifier = ">=0.34,<1" },
 ]
-provides-extras = ["dev", "session-export"]
+provides-extras = ["dev", "browser-auth", "session-export"]
 
 [[package]]
 name = "httpcore"

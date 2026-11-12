@@ -16,8 +16,9 @@ from hotradar.api.source_management import router as management_router
 from hotradar.api.trends import router as trends_router
 from hotradar.db.models import Board, BoardSnapshot
 from hotradar.db.session import session_factory
+from hotradar.platform_browser import browser_lifespan
 
-app = FastAPI(title="HotRadar", version=version("hotradar"))
+app = FastAPI(title="HotRadar", version=version("hotradar"), lifespan=browser_lifespan)
 app.include_router(management_router)
 app.include_router(events_router)
 app.include_router(trends_router)

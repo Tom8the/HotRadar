@@ -21,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.9,<1"]
+browser-auth = ["playwright>=1.51,<2"]
 session-export = [
     "playwright>=1.51,<2",
 ]

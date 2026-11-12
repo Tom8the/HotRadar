@@ -2,10 +2,11 @@
 
 ## 采集授权与服务器迁移
 
-1. 在部署目录执行 `uv sync --locked` 和 `uv run --locked python scripts/configure-platform-sessions.py`。生成的 `HOTRADAR_SESSION_KEY` 用于加密会话，`HOTRADAR_SESSION_ADMIN_TOKEN` 用于管理页提交。也可由部署环境注入这两项。API 和 Worker 必须使用同一个加密密钥和持久会话目录，默认 `data/sessions`，可用 `HOTRADAR_SESSION_DIR` 指定。
-2. 对外部署时为 Next.js 设置 `HOTRADAR_PUBLIC_ORIGIN=https://实际工作台域名`（无尾斜杠），`HOTRADAR_API_URL` 指向内网或回环 API。通过 HTTPS 反代工作台，API 端口仅对工作台和受信环境开放。确认代理转发 `Origin` 和 `Authorization`，避免记录请求头和请求体，验证请求超时至少留 90 秒。回环访问可省略 `HOTRADAR_PUBLIC_ORIGIN`。
-3. 重启 API、Worker 和工作台，从“来源管理”或“爆款内容”进入“采集授权”。每个来源提供官方登录入口。用页面给出的导出命令打开隔离的本机浏览器，登录本人账号。同城来源先在对应官方页面选择无锡。需要时执行 `uv run --locked --extra session-export playwright install chromium` 安装导出浏览器。
-4. 在对应来源导入会话 JSON 并填入部署的管理令牌。页面也接受同平台的 Cookie 数组或仅含该平台 Cookie 的 Playwright storage state。服务器采集并验证一批真实数据，成功后启用该来源。更新验证失败时保留此前保存的会话和数据。导出文件含登录凭据，在导入成功后从本机删除。
+1. 在 API 部署目录执行 `uv sync --locked --extra browser-auth` 和 `uv run --locked python scripts/configure-platform-sessions.py`。生成的 `HOTRADAR_SESSION_KEY` 用于加密会话，`HOTRADAR_SESSION_ADMIN_TOKEN` 用于打开扫码窗口。也可由部署环境注入这两项。API 和 Worker 使用同一个加密密钥和持久会话目录，默认 `data/sessions`，可用 `HOTRADAR_SESSION_DIR` 指定。
+2. Linux API 主机执行 `uv run --locked --extra browser-auth playwright install-deps chromium` 安装系统依赖，再用 API 服务账户执行 `uv run --locked --extra browser-auth playwright install chromium`。API 以可运行 Chromium 沙箱的非 root 用户启动，授权期间相关请求需落在同一个 API 进程。单机使用一个 Uvicorn Worker 即可。Windows 依次尝试已安装的 Edge、Chrome 和 Playwright Chromium，也可通过 `HOTRADAR_BROWSER_CHANNEL` 指定浏览器。
+3. 对外部署时为 Next.js 设置 `HOTRADAR_PUBLIC_ORIGIN=https://实际工作台域名`（无尾斜杠），`HOTRADAR_API_URL` 指向内网或回环 API。通过 HTTPS 反代工作台，API 端口仅对工作台和受信环境开放。代理转发 `Origin` 和 `Authorization`，验证请求超时至少留 90 秒，登录请求体和画面应排除在访问日志之外。回环访问可省略 `HOTRADAR_PUBLIC_ORIGIN`。
+4. 重启 API、Worker 和工作台。从“来源管理”或“爆款内容”进入“采集授权”，选择来源，填入管理令牌并打开扫码窗口。用对应平台 App 扫码。如果平台要求验证码，在弹窗中的输入框直接键入，或按住滑块拖动。微博同城在同一窗口打开同城页并选择无锡。
+5. 完成登录后点“已登录，验证并启用”。服务器验证并留存首批真实数据后加密保存会话。更新验证失败时保留此前保存的会话和数据。关闭窗口、验证成功或十分钟到期后释放临时浏览器。
 
 Windows 原有 `*.dpapi` 仍供原 Windows 用户读取。Linux 需要重新登录并导入一次。之后换机可迁移 `*.fernet` 密文和原加密密钥，分别通过私有渠道转移；平台可能要求新服务器重新登录。管理令牌可在迁移时重新生成。已有历史仍由 PostgreSQL 保存，迁移历史需单独迁移数据库。
 
@@ -19,7 +20,7 @@ Windows 原有 `*.dpapi` 仍供原 Windows 用户读取。Linux 需要重新登�
 
 已有正常本机会话、且官方同城页已选择无锡时，使用 `uv run --locked python scripts/verify-weibo-wuxi-board.py` 只验证访问；加 `--activate` 才启用并通过正式分发另取真实批次入库。结果写入忽略的 `data/weibo-wuxi-probe/verification.json`。新环境seed默认禁用此榜；必须先重启到包含无锡分发的新Worker，再验证启用，避免旧版本按平台总榜采集。既有运行配置不会被seed重置。
 
-登录过期时在微博官方页面重新登录，选择无锡后在“采集授权”导入会话。旧 Windows 环境仍支持 DPAPI。界面来源管理可独立调整周期或暂停，暂停保留历史；微博总榜和具体内容任务独立。实际数据、页面与测试证据见验收（本地留档 `WeiboWuxiBoardAcceptance.md`）。
+登录过期时，在“采集授权”弹窗扫码登录，打开同城页选择无锡后验证。旧 Windows 环境仍支持 DPAPI。界面来源管理可独立调整周期或暂停，暂停保留历史；微博总榜和具体内容任务独立。实际数据、页面与测试证据见验收（本地留档 `WeiboWuxiBoardAcceptance.md`）。
 
 Python3.12、uv、Node.js24/npm、Git和Docker。后端与前端使用项目独立依赖，不复用Ai-news运行目录。
 
@@ -39,7 +40,7 @@ PostgreSQL镜像postgres:16-alpine，容器hotradar-postgres-1，卷hotradar_hot
 
 ### 桌面启动
 
-桌面双击“启动热点雷达”快捷方式，自动启动本项目数据库、后端、网页和采集进程，确认网页与数据库代理就绪后打开默认浏览器：http://127.0.0.1:18811/ 。启动窗口隐藏；重复点击复用已运行的项目进程。电脑需保持开机，关闭浏览器不会停止采集。
+桌面双击“启动热点雷达”快捷方式，自动启动本项目数据库、后端、网页和采集进程，确认网页与数据库代理就绪后打开默认浏览器 http://127.0.0.1:18811/ 。启动窗口隐藏。重复点击时复用与当前项目文件相符的进程，文件或前端依赖更新后重启启动器管理的对应进程。电脑需保持开机，关闭浏览器不会停止采集。
 
 入口由`./scripts/create-desktop-shortcut.ps1`生成，实际执行`./scripts/start-desktop.ps1`。首次缺少依赖或网页构建时会安装/构建；数据库仍使用原持久卷，现有来源设置和本机会话保留。启动失败会显示提示，日志位于`.runlogs/desktop/`，不纳入Git。
 

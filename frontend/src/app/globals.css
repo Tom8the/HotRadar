@@ -495,4 +495,25 @@
 #hotradar-app .hr-authorization-form label { display: grid; gap: 6px; max-width: 380px; font-weight: 600; }
 #hotradar-app .hr-authorization-form input { width: 100%; padding: 8px; border: 1px solid var(--hr-line); border-radius: 7px; }
 #hotradar-app .hr-authorization-form button { justify-self: start; }
-#hotradar-app .hr-authorization-form code { display: block; overflow-wrap: anywhere; padding: 10px; border-radius: 6px; background: var(--hr-soft); }
+#hotradar-app .hr-login-dialog {
+  width: min(1000px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: clamp(12px, 2vw, 20px);
+  color: var(--hr-text);
+  background: var(--hr-surface);
+  border: 1px solid var(--hr-line);
+  border-radius: var(--hr-radius);
+}
+#hotradar-app .hr-login-dialog::backdrop { background: var(--hr-scrim); }
+#hotradar-app .hr-login-header,
+#hotradar-app .hr-login-controls,
+#hotradar-app .hr-login-code { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+#hotradar-app .hr-login-header { justify-content: space-between; }
+#hotradar-app .hr-login-header h2 { margin: 0; font-size: 18px; }
+#hotradar-app .hr-login-controls { margin: 10px 0; }
+#hotradar-app .hr-login-code { flex: 1 1 320px; }
+#hotradar-app .hr-login-code input { flex: 1 1 190px; min-width: 0; padding: 8px; border: 1px solid var(--hr-line); border-radius: 7px; }
+#hotradar-app .hr-login-preview { display: grid; place-items: center; width: 100%; max-width: calc(max(320px, 100dvh - 240px) * 1.6); margin-inline: auto; background: var(--hr-soft); }
+#hotradar-app .hr-login-preview img { display: block; width: 100%; height: auto; touch-action: none; user-select: none; }
+#hotradar-app .hr-login-preview img:focus-visible { outline: 2px solid var(--hr-accent); outline-offset: 2px; }

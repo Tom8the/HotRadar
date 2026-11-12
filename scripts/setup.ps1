@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $projectRoot
 try {
-    uv sync --locked --extra dev --python 3.12
+    uv sync --locked --extra dev --extra browser-auth --python 3.12
     if ($LASTEXITCODE -ne 0) { throw 'Backend dependency installation failed.' }
     Push-Location (Join-Path $projectRoot 'frontend')
     try {

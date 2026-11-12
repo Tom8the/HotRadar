@@ -60,6 +60,41 @@ function Save-ManagedProcesses {
         ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $stateFile -Encoding utf8
 }
 
+function Get-ManagedProcess($Entry) {
+    $process = Get-Process -Id $Entry.id -ErrorAction SilentlyContinue
+    if ($process -and $process.Path -eq $Entry.executable -and
+        $process.StartTime.ToUniversalTime().Ticks -eq ([DateTimeOffset]$Entry.started_at).UtcTicks) {
+        return $process
+    }
+}
+
+function Stop-ManagedComponent($Entry) {
+    if (Get-ManagedProcess $Entry) {
+        # Python venv launchers can have child processes; stop only this verified tree.
+        & "$env:SystemRoot\System32\taskkill.exe" /PID $Entry.id /T /F *>> (Join-Path $runtimeRoot 'launcher.log')
+        if ($LASTEXITCODE -ne 0) { throw "无法停止 $($Entry.role)。" }
+        Write-LaunchLog "Stopped $($Entry.role)."
+    }
+    $script:managed = @($script:managed | Where-Object { $_.role -ne $Entry.role })
+    Save-ManagedProcesses
+}
+
+function Read-JsonFile([string]$Path) {
+    try { Get-Content -LiteralPath $Path -Raw -ErrorAction Stop | ConvertFrom-Json -AsHashtable }
+    catch { return $null }
+}
+
+function Test-FrontendDependencies([string]$Directory, $Lock, [string]$Architecture) {
+    $modules = @('next', '@next/env', "@next/swc-win32-$Architecture-msvc")
+    foreach ($module in $modules) {
+        $expected = $Lock.packages."node_modules/$module".version
+        if (-not $expected) { continue }
+        $installed = Read-JsonFile (Join-Path $Directory "node_modules/$module/package.json")
+        if ($installed.version -ne $expected) { return $false }
+    }
+    return $true
+}
+
 function Start-Component([string]$Role, [string]$Executable, [string[]]$Arguments,
                          [string]$Directory) {
     $quoted = @($Arguments | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' })
@@ -109,16 +144,7 @@ try {
     }
     if ($Action -eq 'Stop') {
         foreach ($entry in @($managed | Sort-Object role -Descending)) {
-            $process = Get-Process -Id $entry.id -ErrorAction SilentlyContinue
-            $expectedStart = [DateTimeOffset]$entry.started_at
-            if ($process -and $process.Path -eq $entry.executable -and
-                $process.StartTime.ToUniversalTime().Ticks -eq $expectedStart.UtcTicks) {
-                # Python venv launchers can have child processes; stop only this verified tree.
-                & "$env:SystemRoot\System32\taskkill.exe" /PID $entry.id /T /F *>> `
-                    (Join-Path $runtimeRoot 'launcher.log')
-                if ($LASTEXITCODE -ne 0) { throw "无法停止 $($entry.role)。" }
-                Write-LaunchLog "Stopped $($entry.role)."
-            }
+            Stop-ManagedComponent $entry
         }
         $managed = @()
         Save-ManagedProcesses
@@ -132,7 +158,36 @@ try {
         $node = (Get-Command node.exe -ErrorAction Stop).Source
         $docker = (Get-Command docker.exe -ErrorAction Stop).Source
         $python = Join-Path $projectRoot '.venv\Scripts\python.exe'
-        $next = Join-Path $projectRoot 'frontend\node_modules\next\dist\bin\next'
+        $frontendRoot = Join-Path $projectRoot 'frontend'
+        $next = Join-Path $frontendRoot 'node_modules\next\dist\bin\next'
+        $frontendLock = Read-JsonFile (Join-Path $frontendRoot 'package-lock.json')
+        $nextVersion = $frontendLock.packages.'node_modules/next'.version
+        if (-not $nextVersion) { throw '前端锁文件中缺少 Next.js 版本。' }
+        $architecture = (& $node -p 'process.arch').Trim()
+        $dependenciesReady = Test-FrontendDependencies $frontendRoot $frontendLock $architecture
+        $buildId = Join-Path $frontendRoot '.next\BUILD_ID'
+        $buildVersion = (Read-JsonFile (Join-Path $frontendRoot '.next\diagnostics\framework.json')).version
+        $frontendInputs = @(Get-ChildItem frontend/src, frontend/public -File -Recurse -ErrorAction SilentlyContinue) +
+            @(Get-Item frontend/package.json, frontend/package-lock.json, frontend/next.config.*,
+                frontend/tsconfig.json, frontend/.env.local -ErrorAction SilentlyContinue)
+        $backendInputs = @(Get-ChildItem backend/src, migrations -File -Filter '*.py' -Recurse) +
+            @(Get-Item pyproject.toml, uv.lock, .env -ErrorAction SilentlyContinue)
+        $needsBuild = -not (Test-Path -LiteralPath $buildId) -or $buildVersion -ne $nextVersion
+        if (-not $needsBuild) {
+            $buildTime = (Get-Item -LiteralPath $buildId).LastWriteTimeUtc
+            $needsBuild = @($frontendInputs | Where-Object { $_.LastWriteTimeUtc -gt $buildTime }).Count -gt 0
+        }
+        foreach ($entry in @($managed)) {
+            $process = Get-ManagedProcess $entry
+            if (-not $process) { continue }
+            $started = $process.StartTime.ToUniversalTime()
+            $inputs = if ($entry.role -eq 'frontend') { $frontendInputs } else { $backendInputs }
+            $changed = @($inputs | Where-Object { $_.LastWriteTimeUtc -gt $started }).Count -gt 0
+            if ($changed -or ($entry.role -eq 'frontend' -and ($needsBuild -or -not $dependenciesReady))) {
+                Write-LaunchLog "Restarting $($entry.role) after project files or dependencies changed."
+                Stop-ManagedComponent $entry
+            }
+        }
         $apiReady = Test-BackendReady
 
         if (-not $apiReady) {
@@ -154,8 +209,10 @@ try {
                 & (Join-Path $PSScriptRoot 'configure-local.ps1') *>> `
                     (Join-Path $runtimeRoot 'setup.log')
             }
-            if (-not (Test-Path -LiteralPath $python)) {
-                Invoke-SetupCommand $uv @('sync', '--locked', '--extra', 'dev', '--python', '3.12') '安装后端依赖'
+            $browserPackage = Join-Path $projectRoot '.venv\Lib\site-packages\playwright\__init__.py'
+            if (-not (Test-Path -LiteralPath $python) -or -not (Test-Path -LiteralPath $browserPackage)) {
+                Invoke-SetupCommand $uv @('sync', '--locked', '--extra', 'dev', '--extra', 'browser-auth',
+                    '--python', '3.12') '安装后端依赖'
             }
             Invoke-SetupCommand $docker @('compose', 'up', '-d', 'postgres') '启动数据库容器'
             Wait-DesktopDatabase -Probe {
@@ -182,18 +239,14 @@ try {
         $webReady = Test-FrontendReady
         if (-not $webReady) {
             if ((Get-Listener 18811).Count) { throw '端口18811已被占用，且网页或后端代理尚未就绪。' }
-            Push-Location (Join-Path $projectRoot 'frontend')
+            Push-Location $frontendRoot
             try {
-                if (-not (Test-Path -LiteralPath $next)) {
+                if (-not $dependenciesReady -or -not (Test-Path -LiteralPath $next)) {
                     Invoke-SetupCommand (Get-Command npm.cmd).Source @('ci') '安装前端依赖'
-                }
-                $buildId = Join-Path $projectRoot 'frontend\.next\BUILD_ID'
-                $inputs = @(Get-ChildItem src, public -File -Recurse -ErrorAction SilentlyContinue) +
-                    @(Get-Item package.json, package-lock.json, next.config.*, tsconfig.json -ErrorAction SilentlyContinue)
-                $needsBuild = -not (Test-Path -LiteralPath $buildId)
-                if (-not $needsBuild) {
-                    $buildTime = (Get-Item -LiteralPath $buildId).LastWriteTimeUtc
-                    $needsBuild = @($inputs | Where-Object { $_.LastWriteTimeUtc -gt $buildTime }).Count -gt 0
+                    if (-not (Test-FrontendDependencies $frontendRoot $frontendLock $architecture)) {
+                        throw '前端安装版本仍与锁文件不一致。'
+                    }
+                    $needsBuild = $true
                 }
                 if ($needsBuild) { Invoke-SetupCommand (Get-Command npm.cmd).Source @('run', 'build') '构建网页' }
                 $frontend = Start-Component 'frontend' $node @($next, 'start', '--hostname',
