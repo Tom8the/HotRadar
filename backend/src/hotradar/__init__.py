@@ -1,0 +1,1 @@
+"""HotRadar development bootstrap."""

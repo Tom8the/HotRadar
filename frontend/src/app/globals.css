@@ -1,0 +1,467 @@
+:root{font-family:Segoe UI,Microsoft YaHei,sans-serif;color-scheme:light}body{margin:0}button{cursor:pointer}a{text-decoration:none}
+
+  #hotradar-app{--hr-bg:light-dark(#f5f7fa,#10171e);--hr-surface:light-dark(#ffffff,#19232d);--hr-soft:light-dark(#f7f9fb,#202c36);--hr-text:light-dark(#1c2b36,#ecf2f7);--hr-secondary:light-dark(#6d7d8b,#a2b4c3);--hr-line:light-dark(#e8edf2,#2d3b48);--hr-accent:light-dark(#0b8567,#69d6b2);--hr-accent-ink:light-dark(#ffffff,#102d22);--hr-accent-soft:light-dark(#edf8f2,#203a32);--hr-orange:light-dark(#b26a17,#edb967);--hr-orange-soft:light-dark(#fff5e8,#3e3326);--hr-red:light-dark(#d94c63,#fb92a3);--hr-blue:light-dark(#4b7eda,#90b2ff);--hr-pink:light-dark(#c6578a,#ee99c3);--hr-scrim:light-dark(#1e2c3e55,#03090fc0);--hr-shadow:light-dark(#2441550d,#00000025);--hr-radius:14px;position:relative;color:var(--hr-text);font:14px/1.55 "Segoe UI","Microsoft YaHei",sans-serif;width:100%;background:var(--hr-bg);isolation:isolate;border-radius:16px;overflow:clip}
+  #hotradar-app *{box-sizing:border-box}
+  #hotradar-app button,#hotradar-app input{font:inherit}
+  #hotradar-app button{color:inherit}
+  #hotradar-app button:disabled{opacity:.5}
+  #hotradar-app [hidden]{display:none!important}
+  #hotradar-app .hr-shell{display:grid;grid-template-columns:174px minmax(0,1fr)}
+  #hotradar-app .hr-sidebar{background:var(--hr-surface);border-right:1px solid var(--hr-line);padding:27px 14px 18px;display:flex;flex-direction:column}
+  #hotradar-app .hr-logo{display:flex;align-items:center;gap:9px;font-size:21px;font-weight:650;letter-spacing:-.7px;padding:0 6px 23px}
+  #hotradar-app .hr-logo small{display:block;font-size:11px;font-weight:400;letter-spacing:2px;color:var(--hr-secondary)}
+  #hotradar-app .hr-logo-mark{background:var(--hr-accent);color:var(--hr-accent-ink);height:34px;width:34px;display:grid;place-items:center;border-radius:10px}
+  #hotradar-app .hr-logo-mark svg{width:23px;height:23px}
+  #hotradar-app .hr-workspace{display:flex;align-items:center;gap:8px;padding:10px 6px 20px;border-bottom:1px solid var(--hr-line);font-size:11px;font-weight:500}
+  #hotradar-app .hr-workspace>svg{width:13px;height:13px;margin-left:auto;color:var(--hr-secondary)}
+  #hotradar-app .hr-avatar{display:grid;place-items:center;background:var(--hr-soft);border:1px solid var(--hr-line);color:var(--hr-secondary);width:28px;height:28px;flex-shrink:0;border-radius:8px;font-size:12px}
+  #hotradar-app small{display:block;font-size:11px;font-weight:400;color:var(--hr-secondary)}
+  #hotradar-app .hr-nav-caption{font-size:11px;letter-spacing:1.5px;color:var(--hr-secondary);padding:23px 10px 11px}
+  #hotradar-app .hr-navigation{display:flex;flex-direction:column;gap:5px}
+  #hotradar-app .hr-nav-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;border-radius:9px;padding:11px 10px;font-size:13px;color:var(--hr-secondary)}
+  #hotradar-app .hr-nav-item svg{width:17px;height:17px}
+  #hotradar-app .hr-nav-item.is-active{background:var(--hr-accent-soft);color:var(--hr-accent);font-weight:600}
+  #hotradar-app .hr-nav-item:hover{background:var(--hr-soft)}
+  #hotradar-app .hr-nav-item.is-active:hover{background:var(--hr-accent-soft)}
+  #hotradar-app .hr-nav-count{margin-left:auto;font-size:11px;background:var(--hr-soft);border-radius:5px;padding:0 5px}
+  #hotradar-app .hr-sidebar-bottom{margin-top:auto;padding-top:110px}
+  #hotradar-app .hr-health-note{padding:13px 9px;background:var(--hr-soft);border-radius:9px;font-size:12px}
+  #hotradar-app .hr-health-note small{font-size:11px;padding-left:12px;margin-top:4px}
+  #hotradar-app .hr-member{display:flex;align-items:center;gap:9px;padding:20px 8px 0;font-size:12px}
+  #hotradar-app .hr-main{min-width:0;padding:0 22px 20px}
+  #hotradar-app .hr-topbar{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:14px;border-bottom:1px solid var(--hr-line)}
+  #hotradar-app .hr-crumb{font-size:12px;color:var(--hr-secondary);white-space:nowrap}
+  #hotradar-app .hr-crumb span{padding:0 9px;color:var(--hr-secondary)}
+  #hotradar-app .hr-crumb strong{font-weight:500;color:var(--hr-text)}
+  #hotradar-app .hr-top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  #hotradar-app .hr-search{display:flex;align-items:center;gap:7px;background:var(--hr-surface);border:1px solid var(--hr-line);padding:7px 10px;border-radius:8px;max-width:240px}
+  #hotradar-app .hr-search svg{width:14px;height:14px;color:var(--hr-secondary);flex-shrink:0}
+  #hotradar-app .hr-search input{width:160px;min-width:0;background:transparent;border:0;padding:0;color:var(--hr-text);font-size:11px}
+  #hotradar-app .hr-search span{color:var(--hr-secondary);font-size:12px}
+  #hotradar-app .hr-icon-button{display:grid;place-items:center;min-width:30px;height:30px;background:transparent;border:0;border-radius:6px;color:var(--hr-secondary)}
+  #hotradar-app .hr-icon-button:hover{background:var(--hr-soft);color:var(--hr-accent)}
+  #hotradar-app .hr-icon-button svg{width:16px;height:16px}
+  #hotradar-app .hr-demo-tag{border:1px solid var(--hr-line);border-radius:6px;padding:4px 7px;font-size:11px;color:var(--hr-secondary)}
+  #hotradar-app .hr-page-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:24px 0 19px}
+  #hotradar-app .hr-overline{font-size:11px;letter-spacing:1.5px;color:var(--hr-accent);font-weight:500}
+  #hotradar-app h1{font-size:25px;font-weight:650;line-height:1.3;letter-spacing:-.6px;margin:6px 0}
+  #hotradar-app .hr-page-heading p{font-size:12px;line-height:1.7;margin:0;color:var(--hr-secondary)}
+  #hotradar-app .hr-heading-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  #hotradar-app .hr-button{display:inline-flex;justify-content:center;align-items:center;gap:6px;background:var(--hr-surface);border:1px solid var(--hr-line);padding:7px 10px;border-radius:7px;font-size:12px;white-space:nowrap}
+  #hotradar-app .hr-button svg{width:14px;height:14px}
+  #hotradar-app .hr-button-primary{background:var(--hr-accent);border-color:var(--hr-accent);color:var(--hr-accent-ink)}
+  #hotradar-app .hr-context-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:17px}
+  #hotradar-app .hr-period{display:flex;align-items:center;gap:3px;background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:8px;padding:3px}
+  #hotradar-app .hr-period button{background:none;border:0;border-radius:5px;padding:5px 10px;font-size:12px;display:flex;align-items:center;gap:6px}
+  #hotradar-app .hr-period button.is-selected{background:var(--hr-accent-soft);color:var(--hr-accent);font-weight:500}
+  #hotradar-app .hr-period svg{width:13px;height:13px}
+  #hotradar-app .hr-sampling{font-size:11px;color:var(--hr-secondary);display:flex;gap:7px;align-items:center}
+  #hotradar-app .hr-dot{display:inline-block;width:5px;height:5px;background:var(--hr-accent);border-radius:50%;margin-right:5px}
+  #hotradar-app .hr-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+  #hotradar-app .hr-stat{background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:11px;padding:13px 15px}
+  #hotradar-app .hr-stat-label{display:flex;align-items:center;justify-content:space-between;color:var(--hr-secondary);font-size:11px}
+  #hotradar-app .hr-stat-label svg{width:14px;height:14px}
+  #hotradar-app .hr-stat-value{font-size:26px;font-weight:650;line-height:1.2;letter-spacing:-.7px;margin:7px 0 5px;font-variant-numeric:tabular-nums}
+  #hotradar-app .hr-stat-value span{font-size:13px;color:var(--hr-secondary);font-weight:400;letter-spacing:0}
+  #hotradar-app .hr-stat-foot{font-size:11px;color:var(--hr-secondary)}
+  #hotradar-app .hr-positive{color:var(--hr-accent)}
+  #hotradar-app .hr-warning{color:var(--hr-orange)}
+  #hotradar-app .hr-section-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:17px 0 12px}
+  #hotradar-app h2{font-size:15px;line-height:1.5;font-weight:600;margin:0}
+  #hotradar-app .hr-section-row small{display:inline;margin-left:8px}
+  #hotradar-app .hr-link-button{display:inline-flex;align-items:center;gap:5px;background:none;border:0;padding:0;color:var(--hr-secondary);font-size:11px}
+  #hotradar-app .hr-link-button svg{width:13px;height:13px}
+  #hotradar-app .hr-category-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:15px}
+  #hotradar-app .hr-chip{background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:7px;padding:5px 11px;font-size:12px;color:var(--hr-secondary)}
+  #hotradar-app .hr-chip.is-selected{background:var(--hr-text);color:var(--hr-surface);border-color:var(--hr-text)}
+  #hotradar-app .hr-filter-tail{margin-left:auto;font-size:11px;color:var(--hr-secondary)}
+  #hotradar-app .hr-boards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+  #hotradar-app .hr-board{min-width:0;background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:var(--hr-radius);overflow:hidden}
+  #hotradar-app .hr-board-heading{display:flex;align-items:center;gap:8px;padding:14px 13px 10px}
+  #hotradar-app .hr-platform-logo{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:var(--hr-soft);font-size:14px;font-weight:650;flex-shrink:0}
+  #hotradar-app .hr-platform-logo.is-weibo{background:light-dark(#fff0ee,#422c2a);color:light-dark(#d9523a,#ff9c85)}
+  #hotradar-app .hr-platform-logo.is-bilibili{background:light-dark(#fff0f6,#3c2a35);color:var(--hr-pink)}
+  #hotradar-app .hr-platform-logo.is-douyin{background:var(--hr-text);color:var(--hr-surface)}
+  #hotradar-app .hr-platform-logo.is-baidu{background:light-dark(#edf3ff,#28354b);color:var(--hr-blue)}
+  #hotradar-app .hr-platform-logo.is-zhihu{background:light-dark(#edf4ff,#253750);color:var(--hr-blue)}
+  #hotradar-app .hr-platform-logo.is-redbook{background:light-dark(#fff0f2,#422935);color:var(--hr-red)}
+  #hotradar-app .hr-board-name{font-size:13px;font-weight:600}
+  #hotradar-app .hr-board-heading .hr-icon-button{margin-left:auto;min-width:24px;height:24px}
+  #hotradar-app .hr-board-caption{font-size:11px;color:var(--hr-secondary);padding:0 13px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hr-line)}
+  #hotradar-app .hr-board-list{list-style:none;margin:0;padding:5px 0}
+  #hotradar-app .hr-board-list li{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:5px;align-items:start;padding:8px 13px;font-size:12px}
+  #hotradar-app .hr-board-list li:hover{background:var(--hr-soft)}
+  #hotradar-app .hr-rank{color:var(--hr-secondary);font-variant-numeric:tabular-nums;font-size:11px;padding-top:1px}
+  #hotradar-app .hr-rank.is-hot{color:var(--hr-red);font-weight:600}
+  #hotradar-app .hr-title-button{font:inherit;text-align:left;background:none;border:0;padding:0;line-height:1.6;color:var(--hr-text);overflow-wrap:anywhere}
+  #hotradar-app .hr-title-button:hover{color:var(--hr-accent)}
+  #hotradar-app .hr-row-metric{font-size:11px;color:var(--hr-secondary);white-space:nowrap;padding-top:2px;font-variant-numeric:tabular-nums}
+  #hotradar-app .hr-board-footer{border-top:1px solid var(--hr-line);padding:8px 13px;display:flex;align-items:center;justify-content:space-between}
+  #hotradar-app .hr-tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;border-radius:4px;padding:2px 6px;background:var(--hr-soft);color:var(--hr-secondary);white-space:nowrap}
+  #hotradar-app .hr-tag.is-green{color:var(--hr-accent);background:var(--hr-accent-soft)}
+  #hotradar-app .hr-tag.is-orange{color:var(--hr-orange);background:var(--hr-orange-soft)}
+  #hotradar-app .hr-tag.is-red{color:var(--hr-red);background:light-dark(#fff0f2,#422935)}
+  #hotradar-app .hr-insight{background:var(--hr-accent-soft);border-radius:10px;margin:17px 0;padding:13px 15px;display:flex;align-items:flex-start;gap:10px;font-size:12px}
+  #hotradar-app .hr-insight>svg{color:var(--hr-accent);width:17px;height:17px;flex-shrink:0;margin-top:2px}
+  #hotradar-app .hr-insight strong{font-weight:600}
+  #hotradar-app .hr-insight p{margin:3px 0 0;color:var(--hr-secondary);font-size:11px}
+  #hotradar-app .hr-two-columns{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(220px,1fr);gap:14px}
+  #hotradar-app .hr-panel{background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:var(--hr-radius);padding:17px;min-width:0}
+  #hotradar-app .hr-panel-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+  #hotradar-app .hr-panel-header h2{font-size:14px}
+  #hotradar-app .hr-event-list{display:flex;flex-direction:column;gap:0}
+  #hotradar-app .hr-event-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;padding:17px 0;border-bottom:1px solid var(--hr-line);align-items:start}
+  #hotradar-app .hr-event-row:last-child{border-bottom:0}
+  #hotradar-app .hr-event-index{font-size:19px;font-weight:500;color:var(--hr-secondary);padding-top:1px;font-variant-numeric:tabular-nums}
+  #hotradar-app .hr-event-title{font-size:14px;font-weight:600;display:block;margin-bottom:7px}
+  #hotradar-app .hr-event-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  #hotradar-app .hr-event-description{font-size:12px;color:var(--hr-secondary);margin:5px 0}
+  #hotradar-app .hr-event-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--hr-secondary)}
+  #hotradar-app .hr-event-right{text-align:right;min-width:46px}
+  #hotradar-app .hr-event-right strong{font-size:14px;font-weight:600;color:var(--hr-accent)}
+  #hotradar-app .hr-mini-platforms{display:flex;gap:4px;margin:10px 0}
+  #hotradar-app .hr-mini-platform{font-size:11px;padding:2px 5px;border-radius:4px;background:var(--hr-soft);color:var(--hr-secondary)}
+  #hotradar-app .hr-side-topic{padding:12px 0;border-top:1px solid var(--hr-line)}
+  #hotradar-app .hr-side-topic:first-of-type{border-top:0}
+  #hotradar-app .hr-side-topic strong{font-size:12px;font-weight:600}
+  #hotradar-app .hr-side-topic p{font-size:11px;color:var(--hr-secondary);margin:6px 0}
+  #hotradar-app .hr-mini-bars{display:flex;align-items:end;gap:5px;height:38px;margin-top:10px}
+  #hotradar-app .hr-mini-bars span{flex:1;background:var(--hr-accent);border-radius:3px 3px 0 0;opacity:.65}
+  #hotradar-app .hr-callout{padding:12px;border-radius:8px;background:var(--hr-soft);font-size:11px;color:var(--hr-secondary);margin-top:14px}
+  #hotradar-app .hr-trend-layout{display:grid;grid-template-columns:190px minmax(0,1fr);gap:14px}
+  #hotradar-app .hr-topic-choice{width:100%;text-align:left;display:block;background:transparent;border:1px solid transparent;border-radius:8px;padding:12px 10px;font-size:12px;margin-bottom:6px}
+  #hotradar-app .hr-topic-choice small{font-size:11px;margin-top:5px}
+  #hotradar-app .hr-topic-choice.is-active{background:var(--hr-accent-soft);border-color:color-mix(in srgb,var(--hr-accent) 18%,transparent)}
+  #hotradar-app .hr-topic-choice.is-active strong{color:var(--hr-accent)}
+  #hotradar-app .hr-chart{width:100%;min-width:0}
+  #hotradar-app .hr-chart svg{display:block;width:100%;height:auto;font:11px "Segoe UI","Microsoft YaHei",sans-serif}
+  #hotradar-app .hr-chart-labels{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--hr-secondary);margin:8px 0 0}
+  #hotradar-app .hr-legend-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+  #hotradar-app .hr-trend-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:15px 0}
+  #hotradar-app .hr-trend-metric{border-top:1px solid var(--hr-line);padding-top:12px}
+  #hotradar-app .hr-trend-metric strong{display:block;font-size:20px;font-weight:600;margin:4px 0}
+  #hotradar-app .hr-snapshot-list{margin-top:15px}
+  #hotradar-app .hr-snapshot-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--hr-line);font-size:12px}
+  #hotradar-app .hr-snapshot-row>span{color:var(--hr-secondary)}
+  #hotradar-app .hr-content-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+  #hotradar-app .hr-content-card{min-width:0;background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:var(--hr-radius);overflow:hidden}
+  #hotradar-app .hr-cover{position:relative;min-height:140px;display:flex;flex-direction:column;justify-content:center;padding:21px;color:light-dark(#284139,#d6f0df);background:light-dark(#dce9d6,#2f4a3d);overflow:hidden}
+  #hotradar-app .hr-cover.is-city{background:light-dark(#d4e2f0,#293d56);color:light-dark(#223d5d,#d2e4ff)}
+  #hotradar-app .hr-cover.is-food{background:light-dark(#f0dfc7,#50412c);color:light-dark(#755326,#edd9ae)}
+  #hotradar-app .hr-cover.is-tech{background:light-dark(#dfdcf0,#3d3656);color:light-dark(#4a4072,#e1d9ff)}
+  #hotradar-app .hr-cover.is-music{background:light-dark(#ead6dc,#51323f);color:light-dark(#74434f,#ffd3df)}
+  #hotradar-app .hr-cover:after{content:"";position:absolute;right:-10px;bottom:-40px;width:115px;height:115px;border:25px solid currentColor;border-radius:50%;opacity:.07}
+  #hotradar-app .hr-cover-eyebrow{font-size:11px;letter-spacing:2px;font-weight:500;opacity:.8}
+  #hotradar-app .hr-cover-title{font-size:25px;line-height:1.3;font-weight:700;letter-spacing:-.7px;position:relative;z-index:1}
+  #hotradar-app .hr-cover-sticker{position:absolute;top:10px;right:10px;font-size:11px;background:var(--hr-surface);color:var(--hr-secondary);padding:2px 5px;border-radius:3px}
+  #hotradar-app .hr-cover-duration{position:absolute;right:10px;bottom:10px;background:light-dark(#294033b0,#070d13b0);color:#ffffff;padding:2px 5px;border-radius:3px;font-size:11px}
+  #hotradar-app .hr-content-body{padding:13px}
+  #hotradar-app .hr-content-proof{font-size:11px;line-height:1.7;margin-top:14px;overflow-wrap:anywhere;color:var(--hr-secondary)}
+  #hotradar-app .hr-content-proof summary{cursor:pointer;color:var(--hr-text)}
+  #hotradar-app .hr-muted{font-size:11px;color:var(--hr-secondary);line-height:1.7}
+  #hotradar-app .hr-content-access{padding:12px 14px;background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:var(--hr-radius);font-size:12px;line-height:1.8;margin-bottom:14px;color:var(--hr-secondary)}
+  #hotradar-app .hr-content-title{font-size:13px;font-weight:600;line-height:1.65;min-height:43px;margin:0 0 7px}
+  #hotradar-app .hr-content-author{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--hr-secondary);margin-bottom:10px}
+  #hotradar-app .hr-author-dot{width:18px;height:18px;display:grid;place-items:center;font-size:11px;border-radius:50%;background:var(--hr-soft);border:1px solid var(--hr-line)}
+  #hotradar-app .hr-content-numbers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:10px 0;border-top:1px solid var(--hr-line);border-bottom:1px solid var(--hr-line)}
+  #hotradar-app .hr-content-numbers span{font-size:11px;color:var(--hr-secondary)}
+  #hotradar-app .hr-content-numbers strong{font-size:13px;font-weight:600;display:block;margin-top:2px;color:var(--hr-text);font-variant-numeric:tabular-nums}
+  #hotradar-app .hr-content-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--hr-secondary)}
+  #hotradar-app .hr-watch-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  #hotradar-app .hr-keyword-tags{display:flex;gap:7px;flex-wrap:wrap}
+  #hotradar-app .hr-keyword{background:var(--hr-accent-soft);color:var(--hr-accent);padding:5px 9px;border-radius:6px;font-size:12px}
+  #hotradar-app .hr-watch-note{border-top:1px solid var(--hr-line);padding-top:15px;margin-top:15px;font-size:11px;color:var(--hr-secondary)}
+  #hotradar-app .hr-source-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;gap:10px;border-top:1px solid var(--hr-line);font-size:12px}
+  #hotradar-app .hr-source-row>div{display:flex;align-items:center;gap:7px}
+  #hotradar-app .hr-source-row .hr-platform-logo{width:23px;height:23px;font-size:11px;border-radius:6px}
+  #hotradar-app .hr-empty{padding:56px 20px;text-align:center;color:var(--hr-secondary);background:var(--hr-surface);border:1px dashed var(--hr-line);border-radius:12px}
+  #hotradar-app .hr-empty svg{width:32px;height:32px;color:var(--hr-accent);margin-bottom:12px}
+  #hotradar-app .hr-empty h2{color:var(--hr-text)}
+  #hotradar-app .hr-empty p{font-size:12px}
+  #hotradar-app .hr-footer{font-size:11px;color:var(--hr-secondary);display:flex;justify-content:space-between;gap:10px;margin-top:24px;padding-top:14px;border-top:1px solid var(--hr-line)}
+  #hotradar-app .hr-detail-layer{position:absolute;inset:0;z-index:20;display:flex;align-items:flex-start;justify-content:flex-end;padding-top:70px}
+  #hotradar-app .hr-detail-backdrop{position:absolute;inset:0;background:var(--hr-scrim);border:0}
+  #hotradar-app .hr-drawer{position:relative;background:var(--hr-surface);width:390px;max-width:100%;padding:22px;min-height:620px;box-shadow:-10px 0 40px var(--hr-shadow);border-left:1px solid var(--hr-line)}
+  #hotradar-app .hr-drawer-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;font-size:12px;color:var(--hr-secondary)}
+  #hotradar-app .hr-drawer h2{font-size:21px;font-weight:650;line-height:1.5;margin:10px 0}
+  #hotradar-app .hr-drawer-summary{font-size:12px;color:var(--hr-secondary);line-height:1.85}
+  #hotradar-app .hr-evidence{padding:13px 0;border-top:1px solid var(--hr-line)}
+  #hotradar-app .hr-evidence-top{display:flex;justify-content:space-between;font-size:11px;color:var(--hr-secondary);margin-bottom:7px}
+  #hotradar-app .hr-evidence strong{font-size:13px;font-weight:500}
+  #hotradar-app .hr-drawer-actions{display:flex;gap:8px;margin-top:22px}
+  #hotradar-app .hr-toast{position:absolute;top:74px;left:50%;transform:translateX(-50%);background:var(--hr-text);color:var(--hr-surface);border-radius:9px;max-width:90%;padding:10px 17px;font-size:12px;z-index:30;box-shadow:0 6px 24px var(--hr-shadow)}
+  #hotradar-app[data-screen="wall"] .hr-shell{grid-template-columns:1fr}
+  #hotradar-app[data-screen="wall"] .hr-sidebar{display:none}
+  #hotradar-app[data-screen="wall"] .hr-main{padding-left:25px;padding-right:25px}
+  #hotradar-app[data-screen="wall"] .hr-boards{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #hotradar-app[data-screen="wall"] .hr-title-button{font-size:14px}
+  #hotradar-app[data-density="compact"] .hr-board-list li{padding-top:5px;padding-bottom:5px}
+  @media(min-width:1300px){#hotradar-app .hr-shell{grid-template-columns:190px minmax(0,1fr)}#hotradar-app .hr-main{padding-left:30px;padding-right:30px}#hotradar-app .hr-boards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:900px){#hotradar-app .hr-shell{grid-template-columns:150px minmax(0,1fr)}#hotradar-app .hr-sidebar{padding-left:10px;padding-right:10px}#hotradar-app .hr-logo{font-size:18px}#hotradar-app .hr-boards{grid-template-columns:repeat(2,minmax(0,1fr))}#hotradar-app .hr-search{max-width:180px}#hotradar-app .hr-search input{width:120px}#hotradar-app .hr-two-columns{grid-template-columns:1fr}#hotradar-app .hr-content-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#hotradar-app .hr-heading-actions{flex-wrap:wrap;justify-content:end}#hotradar-app .hr-demo-tag{display:none}}
+  @media(max-width:720px){#hotradar-app .hr-shell{display:block}#hotradar-app .hr-sidebar{border-right:0;border-bottom:1px solid var(--hr-line);padding:14px}#hotradar-app .hr-logo{padding:0 0 12px}#hotradar-app .hr-logo small{display:none}#hotradar-app .hr-workspace,#hotradar-app .hr-nav-caption,#hotradar-app .hr-sidebar-bottom{display:none}#hotradar-app .hr-navigation{flex-direction:row;flex-wrap:wrap;gap:3px}#hotradar-app .hr-nav-item{width:auto;padding:8px;font-size:12px;gap:5px}#hotradar-app .hr-nav-count{display:none}#hotradar-app .hr-main{padding:0 15px 18px}#hotradar-app .hr-topbar{flex-wrap:wrap;gap:8px;padding:13px 0}#hotradar-app .hr-top-actions{margin-left:auto}#hotradar-app .hr-page-heading{align-items:flex-start;flex-wrap:wrap}#hotradar-app .hr-heading-actions{justify-content:start}#hotradar-app .hr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#hotradar-app .hr-context-bar{flex-wrap:wrap}#hotradar-app .hr-trend-layout{grid-template-columns:1fr}#hotradar-app .hr-topic-list{display:flex;gap:5px;flex-wrap:wrap}#hotradar-app .hr-topic-choice{width:auto;flex:1;min-width:130px;margin:0}#hotradar-app .hr-footer{flex-wrap:wrap}#hotradar-app .hr-two-columns{grid-template-columns:1fr}}
+  @media(max-width:460px){#hotradar-app .hr-boards,#hotradar-app .hr-content-grid,#hotradar-app[data-screen="wall"] .hr-boards{grid-template-columns:1fr}#hotradar-app .hr-top-actions{width:100%;margin:0}#hotradar-app .hr-search{flex:1;max-width:none}#hotradar-app .hr-search input{width:100%;font-size:16px}#hotradar-app .hr-demo-tag{display:inline-flex}#hotradar-app .hr-event-row{gap:8px}#hotradar-app .hr-filter-tail{margin-left:0}#hotradar-app .hr-trend-bottom{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(pointer:coarse){#hotradar-app button{min-height:42px}#hotradar-app .hr-title-button{min-height:0}#hotradar-app .hr-nav-item{padding-top:11px;padding-bottom:11px}}
+
+#hotradar-app{border-radius:0;overflow:visible;min-height:100vh}
+#hotradar-app .hr-shell{min-height:100vh;grid-template-columns:190px minmax(0,1fr)}
+#hotradar-app .hr-main{padding:0 30px 24px}
+#hotradar-app .hr-boards{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+#hotradar-app .hr-board-list li{grid-template-columns:24px minmax(0,1fr) auto 23px;padding:11px 18px;font-size:14px;border-bottom:1px solid color-mix(in srgb,var(--hr-line) 45%,transparent)}
+#hotradar-app .hr-board-list li:last-child{border-bottom:0}
+#hotradar-app .hr-title-button{display:inline;color:var(--hr-text)}
+#hotradar-app .hr-title-button:hover{color:var(--hr-accent);text-decoration:underline}
+#hotradar-app .hr-row-metric{font-size:12px}
+#hotradar-app .hr-row-details{background:none;border:0;padding:2px;color:var(--hr-secondary)}
+#hotradar-app .hr-row-details svg{width:14px;height:14px}
+#hotradar-app .hr-row-title{min-width:0}
+#hotradar-app .hr-row-flags{display:inline;margin-left:7px;background:var(--hr-soft);padding:1px 4px;font-size:11px;color:var(--hr-secondary);border-radius:3px}
+#hotradar-app .hr-show-all{display:block;width:100%;border:0;border-top:1px solid var(--hr-line);padding:12px;background:var(--hr-soft);color:var(--hr-secondary);font-size:12px}
+#hotradar-app .hr-date{display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px}
+#hotradar-app .hr-date input{font:inherit;color:var(--hr-text);border:0;background:transparent;width:120px}
+#hotradar-app .hr-error-banner{display:flex;align-items:center;gap:10px;background:var(--hr-orange-soft);color:var(--hr-orange);padding:14px;border-radius:9px;margin-bottom:16px;font-size:13px}
+#hotradar-app .hr-error-banner>svg{width:19px;height:19px;flex-shrink:0}
+#hotradar-app .hr-error-banner .hr-button{margin-left:auto}
+#hotradar-app .hr-board-warning{padding:8px 16px;background:var(--hr-orange-soft);color:var(--hr-orange);font-size:12px}
+#hotradar-app .hr-icon-button.is-favorite{color:var(--hr-accent)}
+#hotradar-app .hr-drawer{min-height:650px;width:460px}
+#hotradar-app .hr-detail-layer{position:fixed;padding-top:0;align-items:stretch}
+#hotradar-app .hr-drawer{overflow:auto;max-height:100vh}
+#hotradar-app .hr-evidence small{margin:5px 0}
+#hotradar-app .hr-snapshot-select{width:100%;padding:10px;border:1px solid var(--hr-line);background:var(--hr-soft);color:var(--hr-text);border-radius:7px;margin-bottom:14px;font:inherit;font-size:13px}
+#hotradar-app .hr-history-list{list-style:none;padding:0;margin-top:15px}
+#hotradar-app .hr-history-list li{display:grid;grid-template-columns:23px minmax(0,1fr) auto;gap:8px;padding:12px 0;border-bottom:1px solid var(--hr-line);font-size:13px}
+#hotradar-app .hr-history-list span{color:var(--hr-secondary)}
+#hotradar-app .hr-history-list a{color:var(--hr-text)}
+#hotradar-app[data-screen="wall"] .hr-shell{grid-template-columns:1fr}
+#hotradar-app[data-screen="wall"] .hr-boards{grid-template-columns:repeat(2,minmax(0,1fr))}
+#hotradar-app[data-theme="dark"]{--hr-bg:#10171e;--hr-surface:#19232d;--hr-soft:#202c36;--hr-text:#ecf2f7;--hr-secondary:#a2b4c3;--hr-line:#2d3b48;--hr-accent:#69d6b2;--hr-accent-ink:#102d22;--hr-accent-soft:#203a32;--hr-orange:#edb967;--hr-orange-soft:#3e3326;--hr-red:#fb92a3;--hr-blue:#90b2ff;--hr-pink:#ee99c3;--hr-scrim:#03090fc0;--hr-shadow:#00000025}
+#hotradar-app[data-theme="dark"] .hr-platform-logo.is-weibo{background:#422c2a;color:#ff9c85}
+#hotradar-app[data-screen="wall"] .hr-board-list li{font-size:17px;padding:15px 20px}
+#hotradar-app[data-screen="wall"] .hr-row-metric{font-size:15px}
+#hotradar-app .is-spinning{animation:hr-spin 1s linear infinite}
+@keyframes hr-spin{to{transform:rotate(360deg)}}
+#hotradar-app .hr-workbench-controls{margin:0 0 18px}
+#hotradar-app .hr-heading-actions{max-width:100%;min-width:0}
+#hotradar-app .hr-group-row{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px}
+#hotradar-app .hr-group-row .hr-link-button{margin-left:auto}
+#hotradar-app .hr-link-button svg{width:14px;height:14px}
+#hotradar-app .hr-group-editor{display:flex;flex-wrap:wrap;align-items:end;gap:10px;padding:15px;background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:9px;margin-bottom:12px}
+#hotradar-app .hr-group-editor label{font-size:12px;display:flex;flex-direction:column;gap:5px}
+#hotradar-app .hr-group-editor input:not([type="checkbox"]){width:160px;padding:8px;border:1px solid var(--hr-line);background:var(--hr-soft);color:var(--hr-text);border-radius:6px}
+#hotradar-app .hr-group-members{display:flex;gap:10px;align-items:center;min-height:36px}
+#hotradar-app .hr-group-members label{flex-direction:row;align-items:center}
+#hotradar-app .hr-group-editor>small{width:100%;color:var(--hr-secondary);font-size:11px}
+#hotradar-app .hr-filter-fields{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+#hotradar-app .hr-filter-fields>label{display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-filter-fields>label>svg{display:none}
+#hotradar-app .hr-filter-fields input:not([type="checkbox"]){width:180px;border:1px solid var(--hr-line);border-radius:6px;padding:7px 10px;background:var(--hr-surface);color:var(--hr-text);font:inherit;font-size:12px}
+#hotradar-app .hr-filter-fields .hr-checkbox{flex-direction:row;align-items:center;min-height:33px;gap:5px}
+#hotradar-app input[type="checkbox"]{accent-color:var(--hr-accent)}
+#hotradar-app .hr-workbench-controls .hr-category-row{margin-bottom:0}
+#hotradar-app .hr-category-row>small{color:var(--hr-secondary);font-size:11px;flex-basis:100%}
+#hotradar-app .hr-board-heading{flex-wrap:wrap}
+#hotradar-app .hr-card-tools{display:flex;align-items:center;margin-left:auto;gap:1px}
+#hotradar-app .hr-card-tools .hr-icon-button{width:25px;height:28px;padding:4px}
+#hotradar-app .hr-card-tools svg{width:13px;height:13px}
+#hotradar-app .hr-drag-handle{cursor:grab}
+#hotradar-app .hr-board.is-dragging{opacity:.65;border-color:var(--hr-accent)}
+#hotradar-app .hr-result-count{padding:6px 15px;font-size:11px;color:var(--hr-secondary);background:var(--hr-soft)}
+#hotradar-app .hr-paused-note,#hotradar-app .hr-success-banner{padding:12px 15px;border-radius:8px;background:var(--hr-accent-soft);color:var(--hr-accent);font-size:12px;margin-bottom:15px}
+#hotradar-app .hr-source-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+#hotradar-app .hr-source-management h2{display:flex;align-items:center;gap:6px}
+#hotradar-app .hr-source-management h2>svg{width:20px;height:20px}
+#hotradar-app .hr-source-card{background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:12px;padding:20px;min-width:0}
+#hotradar-app .hr-source-card h3{margin:0;font-size:17px}
+#hotradar-app .hr-source-card h3 small{display:block;font-size:12px;color:var(--hr-secondary);font-weight:normal;margin-top:4px}
+#hotradar-app .hr-source-settings{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:18px 0}
+#hotradar-app .hr-source-settings label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--hr-secondary)}
+#hotradar-app .hr-source-settings select{font:inherit;padding:8px;border:1px solid var(--hr-line);border-radius:6px;background:var(--hr-soft);color:var(--hr-text)}
+#hotradar-app .hr-source-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#hotradar-app .hr-source-facts dt{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-source-facts dd{margin:3px 0 0;font-size:13px}
+#hotradar-app .hr-run-counts{background:var(--hr-soft);padding:10px;border-radius:6px;font-size:12px;margin:16px 0}
+#hotradar-app .hr-source-card details{border-top:1px solid var(--hr-line);padding:10px 0;font-size:12px}
+#hotradar-app .hr-source-card summary{cursor:pointer;color:var(--hr-text)}
+#hotradar-app .hr-source-card>small,#hotradar-app .hr-source-management>small,#hotradar-app .hr-management-note{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-run-list{list-style:none;padding:0;margin:10px 0}
+#hotradar-app .hr-run-list li{display:flex;flex-wrap:wrap;gap:10px;padding:7px 0}
+@media(max-width:800px){#hotradar-app .hr-source-cards{grid-template-columns:1fr}}
+@media(max-width:460px){#hotradar-app .hr-filter-fields>label:not(.hr-checkbox){flex:1 1 100%;min-width:0}#hotradar-app .hr-filter-fields input:not([type="checkbox"]){width:100%}#hotradar-app .hr-card-tools{width:100%;justify-content:flex-end;margin-top:5px}}
+@media(prefers-reduced-motion:reduce){#hotradar-app .is-spinning{animation:none}}
+@media(max-width:800px){#hotradar-app[data-screen="wall"] .hr-boards{grid-template-columns:1fr}}
+@media(max-width:800px){#hotradar-app .hr-shell{display:block}#hotradar-app .hr-sidebar{border-right:0;border-bottom:1px solid var(--hr-line);padding:14px}#hotradar-app .hr-logo{padding:0 0 12px}#hotradar-app .hr-sidebar-bottom,#hotradar-app .hr-workspace,#hotradar-app .hr-nav-caption{display:none}#hotradar-app .hr-navigation{flex-direction:row;flex-wrap:wrap}#hotradar-app .hr-nav-item{width:auto}#hotradar-app .hr-main{padding:0 16px 20px}#hotradar-app .hr-boards{grid-template-columns:1fr}#hotradar-app .hr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}#hotradar-app .hr-topbar,#hotradar-app .hr-page-heading{flex-wrap:wrap}}
+#hotradar-app .hr-event-stats{display:flex;flex-wrap:wrap;gap:24px;background:var(--hr-surface);border:1px solid var(--hr-line);padding:17px 20px;border-radius:10px;margin:15px 0;font-size:12px;color:var(--hr-secondary)}
+#hotradar-app .hr-event-stats strong{font-size:24px;color:var(--hr-text);margin-right:7px}
+#hotradar-app .hr-event-manager .hr-section-row h2{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#hotradar-app .hr-event-manager .hr-section-row h2>svg{width:20px;height:20px;color:var(--hr-accent)}
+#hotradar-app .hr-event-read{color:var(--hr-secondary);font-size:11px;overflow-wrap:anywhere}
+#hotradar-app .hr-event-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0}
+#hotradar-app .hr-event-filters select,#hotradar-app .hr-event-edit select,#hotradar-app .hr-event-edit input,#hotradar-app .hr-event-edit textarea{border:1px solid var(--hr-line);border-radius:7px;background:var(--hr-soft);color:var(--hr-text);padding:9px;font:inherit;font-size:12px;max-width:100%;min-width:0}
+#hotradar-app .hr-event-filters .hr-search{flex:1;max-width:320px;min-width:150px}
+#hotradar-app .hr-event-filters input{width:100%}
+#hotradar-app .hr-event-filters>small{color:var(--hr-secondary);font-size:11px}
+#hotradar-app .hr-event-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+#hotradar-app .hr-event-card{padding:20px;background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:12px;min-width:0}
+#hotradar-app .hr-event-card-top,#hotradar-app .hr-event-card-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+#hotradar-app .hr-event-status{font-size:11px;color:var(--hr-secondary);display:flex;gap:5px;align-items:center}
+#hotradar-app .hr-event-status svg{width:13px;height:13px;color:var(--hr-accent)}
+#hotradar-app .hr-event-card h3{font-size:16px;margin:15px 0;line-height:1.65}
+#hotradar-app .hr-event-card .hr-title-button{font:inherit;text-align:left;background:none;border:0;padding:0;overflow-wrap:anywhere}
+#hotradar-app .hr-event-summary{font-size:12px;line-height:1.8;color:var(--hr-secondary);min-height:44px}
+#hotradar-app .hr-event-summary p{margin:4px 0}
+#hotradar-app .hr-event-card-bottom{margin-top:17px;padding-top:12px;border-top:1px solid var(--hr-line);font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-event-drawer{width:560px;overflow-wrap:anywhere}
+#hotradar-app .hr-event-drawer h3{font-size:14px;margin:24px 0 12px}
+#hotradar-app .hr-event-brief{background:var(--hr-soft);padding:12px;border-radius:8px;font-size:13px;line-height:1.8}
+#hotradar-app .hr-event-brief p{margin:5px 0}
+#hotradar-app .hr-event-brief a{color:var(--hr-text)}
+#hotradar-app .hr-summary-provenance{margin-top:13px;font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-summary-provenance summary,#hotradar-app .hr-event-evidence summary{cursor:pointer}
+#hotradar-app .hr-event-evidence{border:1px solid var(--hr-line);border-radius:9px;padding:15px;margin:12px 0;scroll-margin-top:15px}
+#hotradar-app .hr-event-evidence>a{color:var(--hr-text);font-size:14px;line-height:1.6}
+#hotradar-app .hr-event-evidence>a svg{display:inline;width:12px;height:12px;margin-left:6px}
+#hotradar-app .hr-event-evidence p{font-size:12px;color:var(--hr-secondary);margin:10px 0}
+#hotradar-app .hr-event-evidence small{display:block;font-size:11px;color:var(--hr-secondary);line-height:1.9}
+#hotradar-app .hr-event-evidence details{margin-top:10px;font-size:11px}
+#hotradar-app .hr-event-edit{border-top:1px solid var(--hr-line);margin-top:24px;padding-top:5px}
+#hotradar-app .hr-event-edit>label{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--hr-secondary);margin:15px 0}
+#hotradar-app .hr-event-edit textarea{resize:vertical;min-height:75px}
+#hotradar-app .hr-event-edit .hr-drawer-actions{flex-wrap:wrap;margin-top:12px}
+#hotradar-app .hr-event-candidates{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:15px}
+#hotradar-app .hr-event-candidates>small{flex-basis:100%;font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-event-candidates button{font-size:11px;white-space:normal;text-align:left}
+#hotradar-app .hr-merge-preview{font-size:12px;background:var(--hr-accent-soft);padding:12px;border-radius:7px;margin-bottom:12px}
+#hotradar-app .hr-split-list{display:flex;flex-direction:column;gap:10px;font-size:12px;margin:25px 0 15px}
+#hotradar-app .hr-split-list label{display:flex;align-items:flex-start;gap:8px;line-height:1.7}
+#hotradar-app .hr-event-audit article{padding:15px 0;border-top:1px solid var(--hr-line);font-size:12px}
+#hotradar-app .hr-event-audit small{display:block;color:var(--hr-secondary);margin:7px 0;line-height:1.8}
+#hotradar-app .hr-event-audit p{color:var(--hr-secondary);line-height:1.8}
+#hotradar-app[data-screen="wall"] .hr-event-card h3{font-size:21px}
+#hotradar-app[data-screen="wall"] .hr-event-summary{font-size:15px}
+@media(max-width:800px){#hotradar-app .hr-event-grid{grid-template-columns:1fr}}
+@media(max-width:460px){#hotradar-app .hr-event-card{padding:15px}#hotradar-app .hr-event-filters .hr-search{max-width:none;flex-basis:100%}#hotradar-app .hr-event-drawer{padding:17px}#hotradar-app .hr-event-filters select{flex:1;width:100%}}
+#hotradar-app .hr-event-sources{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0}
+#hotradar-app .hr-trend-range{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+#hotradar-app .hr-trend-range .hr-category-row{margin:0}
+#hotradar-app .hr-trend-range>small{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-trend-range>.hr-button{margin-left:auto}
+#hotradar-app .hr-custom-range{display:flex;align-items:end;gap:15px;flex-wrap:wrap;margin-bottom:18px}
+#hotradar-app .hr-custom-range label{display:flex;flex-direction:column;gap:6px;font-size:12px}
+#hotradar-app .hr-custom-range input,#hotradar-app .hr-trend-manager select{font:inherit;font-size:12px;padding:9px;border:1px solid var(--hr-line);background:var(--hr-surface);color:var(--hr-text);border-radius:7px;max-width:100%;min-width:0}
+#hotradar-app .hr-custom-range>small{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-history-notice{display:flex;gap:12px;border:1px solid color-mix(in srgb,var(--hr-orange) 35%,var(--hr-line));background:var(--hr-orange-soft);border-radius:11px;padding:17px 20px;margin:15px 0;color:var(--hr-text)}
+#hotradar-app .hr-history-notice>svg{width:20px;height:20px;flex:none;color:var(--hr-orange)}
+#hotradar-app .hr-history-notice strong{font-size:15px}
+#hotradar-app .hr-history-notice p{font-size:12px;color:var(--hr-secondary);margin:8px 0}
+#hotradar-app .hr-history-notice small{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-trend-source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+#hotradar-app .hr-trend-source{background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:11px;padding:18px;min-width:0}
+#hotradar-app .hr-trend-source h3{font-size:16px;margin:0}
+#hotradar-app .hr-trend-source h3 small{font-size:12px;color:var(--hr-secondary);font-weight:400;margin-left:10px}
+#hotradar-app .hr-trend-source .hr-section-row{margin:0;gap:8px;flex-wrap:wrap}
+#hotradar-app .hr-trend-source p{font-size:12px;color:var(--hr-secondary);line-height:1.8}
+#hotradar-app .hr-trend-source>small,#hotradar-app .hr-trend-source details{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-trend-source details{border-top:1px solid var(--hr-line);padding-top:11px;margin-top:12px;line-height:1.8}
+#hotradar-app .hr-trend-source summary{cursor:pointer;color:var(--hr-text)}
+#hotradar-app .hr-days-grid{display:grid;gap:5px;margin:13px 0}
+#hotradar-app .hr-day-cell{text-align:center;border:1px solid var(--hr-line);border-radius:6px;padding:9px 2px;min-width:0;font-size:11px}
+#hotradar-app .hr-day-cell time,#hotradar-app .hr-day-cell strong,#hotradar-app .hr-day-cell small{display:block;margin:3px 0}
+#hotradar-app .hr-day-cell strong{font-size:11px}
+#hotradar-app .hr-day-cell small{font-size:9px;color:var(--hr-secondary)}
+#hotradar-app .hr-day-cell.is-observed{background:var(--hr-accent-soft);border-color:color-mix(in srgb,var(--hr-accent) 35%,var(--hr-line))}
+#hotradar-app .hr-day-cell.is-unobserved{background:var(--hr-soft);color:var(--hr-secondary);border-style:dashed}
+#hotradar-app .hr-coverage-quality{display:flex;flex-wrap:wrap;gap:7px;font-size:11px;color:var(--hr-secondary);margin:10px 0}
+#hotradar-app .hr-coverage-quality span{padding:3px 6px;background:var(--hr-soft);border-radius:4px}
+#hotradar-app .hr-trend-read{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;font-size:11px;color:var(--hr-secondary);margin:15px 0}
+#hotradar-app .hr-trend-pickers{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:20px 0}
+#hotradar-app .hr-trend-pickers .hr-search{width:220px;max-width:220px}
+#hotradar-app .hr-trend-pickers .hr-search input{width:100%}
+#hotradar-app .hr-trend-event-picker{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px;font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-trend-event-picker select{width:100%}
+#hotradar-app .hr-trend-pickers>small{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-trend-content>.hr-section-row{flex-wrap:wrap;gap:10px}
+#hotradar-app .hr-trend-content h2{font-size:20px;line-height:1.6}
+#hotradar-app .hr-trend-content h2 small{display:block;font-size:11px;color:var(--hr-secondary);font-weight:400}
+#hotradar-app .hr-trend-series-checks{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin:18px 0}
+#hotradar-app .hr-trend-series-checks label{display:flex;align-items:flex-start;gap:6px}
+#hotradar-app .hr-trend-series-checks small{width:100%;font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-real-chart{background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:11px;padding:17px;min-width:0;margin:14px 0}
+#hotradar-app .hr-chart-caption{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:10px}
+#hotradar-app .hr-chart-caption>span{font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-real-chart svg{display:block;width:100%;height:auto;min-height:160px;overflow:visible;color:var(--hr-text)}
+#hotradar-app .hr-real-chart svg text{fill:var(--hr-secondary);font-size:12px}
+#hotradar-app .hr-chart-grid{stroke:var(--hr-line);stroke-dasharray:4 4}
+#hotradar-app .hr-chart-gap{fill:var(--hr-secondary);opacity:.09}
+#hotradar-app .hr-chart-gap.is-missing,#hotradar-app .hr-chart-gap.is-paused{fill:var(--hr-orange);opacity:.13}
+#hotradar-app .hr-real-chart circle{cursor:pointer}
+#hotradar-app .hr-real-chart circle.is-qualified{fill:var(--hr-surface);stroke-width:2}
+#hotradar-app .hr-chart-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--hr-secondary);margin-bottom:10px}
+#hotradar-app .hr-chart-legend span{display:flex;align-items:start;gap:6px;line-height:1.7}
+#hotradar-app .hr-chart-legend i{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px}
+#hotradar-app .hr-real-chart>small{font-size:11px;color:var(--hr-secondary);line-height:1.8}
+#hotradar-app .hr-point-picker{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:11px;color:var(--hr-secondary);margin-top:15px}
+#hotradar-app .hr-point-picker select{flex:1;min-width:150px}
+#hotradar-app .hr-selected-point{display:flex;flex-direction:column;gap:7px;line-height:1.8;background:var(--hr-soft);padding:13px;font-size:12px;margin-top:13px;border-radius:7px;overflow-wrap:anywhere}
+#hotradar-app .hr-selected-point small{color:var(--hr-secondary);font-size:10px}
+#hotradar-app .hr-trend-metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+#hotradar-app .hr-trend-metric-card{background:var(--hr-surface);border:1px solid var(--hr-line);border-radius:11px;padding:18px;min-width:0}
+#hotradar-app .hr-trend-metric-card h3{font-size:16px;margin:0 0 13px;line-height:1.6}
+#hotradar-app .hr-trend-metric-card h3 small{display:block;font-size:11px;color:var(--hr-secondary);font-weight:400}
+#hotradar-app .hr-trend-metric-card>.hr-real-chart{padding:0;border:0;border-radius:0;margin:18px 0}
+#hotradar-app .hr-real-series-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;font-size:11px;color:var(--hr-secondary);margin-bottom:12px}
+#hotradar-app .hr-real-series-stats strong{display:block;font-size:23px;color:var(--hr-text);margin-top:5px}
+#hotradar-app .hr-trend-metric-card>small{font-size:11px;line-height:1.8;color:var(--hr-secondary)}
+#hotradar-app .hr-trend-comparison{border-top:1px solid var(--hr-line);padding-top:14px;font-size:12px;line-height:1.8}
+#hotradar-app .hr-trend-comparison small{display:block;font-size:11px;color:var(--hr-secondary)}
+#hotradar-app .hr-trend-ledger{margin-top:22px;border:1px solid var(--hr-line);background:var(--hr-surface);border-radius:10px;padding:18px;font-size:12px;overflow-wrap:anywhere;min-width:0}
+#hotradar-app .hr-trend-ledger summary{cursor:pointer;font-weight:600}
+#hotradar-app .hr-trend-ledger>label{display:flex;flex-direction:column;gap:7px;margin:15px 0}
+#hotradar-app .hr-trend-table-wrap{overflow:auto;max-height:480px}
+#hotradar-app .hr-trend-ledger table{width:100%;border-collapse:collapse;font-size:11px;min-width:580px}
+#hotradar-app .hr-trend-ledger th,#hotradar-app .hr-trend-ledger td{padding:11px 8px;text-align:left;border-bottom:1px solid var(--hr-line);vertical-align:top}
+#hotradar-app .hr-trend-ledger td small{display:block;font-size:9px;color:var(--hr-secondary);max-width:240px;margin-top:8px}
+#hotradar-app .hr-trend-ledger a{color:var(--hr-accent)}
+#hotradar-app .hr-trend-rotation{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin:16px 0}
+#hotradar-app .hr-trend-rotation>span{font-size:12px;color:var(--hr-secondary)}
+#hotradar-app[data-screen="wall"][data-view="trends"] .hr-overline,#hotradar-app[data-screen="wall"][data-view="trends"] .hr-page-heading p{display:none}
+#hotradar-app[data-screen="wall"] .hr-trend-source-grid .hr-days-grid{display:none}
+#hotradar-app[data-screen="wall"] .hr-trend-source details{display:none}
+#hotradar-app[data-screen="wall"] .hr-trend-source{padding:12px}
+#hotradar-app[data-screen="wall"] .hr-trend-source p{margin:5px 0;font-size:11px}
+#hotradar-app[data-screen="wall"] .hr-history-notice{padding:12px 16px}
+#hotradar-app[data-screen="wall"] .hr-trend-read{margin:9px 0}
+@media(max-width:800px){#hotradar-app .hr-trend-source-grid,#hotradar-app .hr-trend-metric-grid{grid-template-columns:1fr}}
+@media(max-width:460px){#hotradar-app .hr-history-notice{padding:13px;gap:8px}#hotradar-app .hr-trend-source,#hotradar-app .hr-trend-metric-card,#hotradar-app .hr-real-chart{padding:13px}#hotradar-app .hr-day-cell{font-size:9px;padding:5px 0}#hotradar-app .hr-day-cell strong{font-size:9px}#hotradar-app .hr-day-cell small{font-size:8px}#hotradar-app .hr-trend-source h3 small{display:block;margin:3px 0 0}#hotradar-app .hr-trend-pickers .hr-search{width:100%;max-width:none;flex-basis:100%}#hotradar-app .hr-trend-event-picker{flex-basis:100%}#hotradar-app .hr-point-picker select{width:100%;flex-basis:100%}#hotradar-app .hr-chart-legend{font-size:10px}#hotradar-app .hr-trend-manager .hr-real-chart svg{min-height:130px}#hotradar-app .hr-custom-range label{flex:1;min-width:0}#hotradar-app .hr-custom-range input{width:100%}#hotradar-app .hr-trend-manager .hr-error-banner{flex-wrap:wrap}}
+#hotradar-app[data-screen="wall"][data-view="trends"] .hr-topbar{min-height:0;padding-top:10px;padding-bottom:10px}
+#hotradar-app[data-screen="wall"][data-view="trends"] .hr-page-heading{padding-top:8px;margin-bottom:8px}
+#hotradar-app[data-screen="wall"][data-view="trends"] .hr-page-heading h1{font-size:24px;margin:5px 0}
+#hotradar-app[data-screen="wall"] .hr-trend-source p{display:none}
+#hotradar-app[data-screen="wall"] .hr-trend-range{margin-bottom:8px}
+#hotradar-app[data-screen="wall"] .hr-history-notice p{margin:5px 0}
+#hotradar-app[data-screen="wall"] .hr-trend-content>.hr-section-row{margin-bottom:8px}
+#hotradar-app[data-screen="wall"] .hr-trend-content h2{margin:5px 0;font-size:22px}
+@media(min-width:1200px){
+#hotradar-app[data-screen="wall"][data-view="trends"] .hr-trend-manager{display:grid;grid-template-columns:260px minmax(0,1fr);column-gap:18px}
+#hotradar-app[data-screen="wall"] .hr-trend-range{grid-column:1/-1;grid-row:1}
+#hotradar-app[data-screen="wall"] .hr-custom-range{grid-column:1/-1;grid-row:2}
+#hotradar-app[data-screen="wall"] .hr-history-notice{grid-column:1/-1;grid-row:3}
+#hotradar-app[data-screen="wall"] .hr-trend-manager>.hr-error-banner{grid-column:1/-1;grid-row:4}
+#hotradar-app[data-screen="wall"] .hr-trend-source-grid{grid-column:1;grid-row:5/span 5;grid-template-columns:1fr;align-self:start;position:sticky;top:15px}
+#hotradar-app[data-screen="wall"] .hr-trend-read{grid-column:2;grid-row:5;align-self:start}
+#hotradar-app[data-screen="wall"] .hr-trend-pickers{grid-column:2;grid-row:6;margin:10px 0}
+#hotradar-app[data-screen="wall"] .hr-trend-rotation{grid-column:2;grid-row:7;margin:10px 0}
+#hotradar-app[data-screen="wall"] .hr-trend-manager>p[role="status"]{grid-column:2;grid-row:8}
+#hotradar-app[data-screen="wall"] .hr-trend-content,#hotradar-app[data-screen="wall"] .hr-trend-manager>.hr-empty{grid-column:2;grid-row:9;min-width:0}
+}
+
+#hotradar-app .hr-board-tabs{display:flex;gap:8px;padding:0 18px 12px}
+#hotradar-app .hr-board-tabs .hr-chip{flex:1;padding:8px 12px;font-size:13px;font-weight:600}
+
+#hotradar-app [data-board-id="douyin-wuxi"] .hr-board-list li{grid-template-columns:44px minmax(0,1fr) auto 23px}
+
+#hotradar-app .hr-platform-logo.is-baidu{background:#eaf0ff;color:#2932df}
+#hotradar-app[data-theme="dark"] .hr-platform-logo.is-baidu{background:#292e50;color:#aebaff}
+
+@media(min-width:1280px){
+  #hotradar-app .hr-boards:has(>.hr-board:nth-child(3)){grid-template-columns:repeat(3,minmax(0,1fr))}
+}
