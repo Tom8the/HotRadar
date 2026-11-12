@@ -16,7 +16,7 @@ from hotradar.db.models import ContentCollectionRun, ContentObservation, Content
 from hotradar.db.session import session_factory
 from hotradar.douyin_content import VERSION as DOUYIN_VERSION
 from hotradar.douyin_content import fetch_douyin
-from hotradar.session_store import client_cookies, cookie_path
+from hotradar.session_store import client_cookies, session_status
 
 VERSION = "weibo-session-content-v1"
 FEED_URL = "https://weibo.com/ajax/feed/hottimeline"
@@ -151,7 +151,7 @@ async def request_json(client, url, params):
 async def fetch_weibo(*, verify=False, transport=None, cookies=None):
     if cookies is None:
         try:
-            cookies = client_cookies("weibo")
+            cookies = client_cookies("weibo", scope="weibo-content")
         except (RuntimeError, ValueError, OSError):
             raise CollectionError(
                 "session_required", "Local platform session is missing or unavailable."
@@ -323,7 +323,7 @@ def source_status(session):
                 "enabled": bool(config and config.enabled and config.verified_at is not None),
                 "interval_seconds": config.interval_seconds if config else 1800,
                 "verified_at": config.verified_at if config else None,
-                "session_saved_locally": cookie_path(source).exists(),
+                "session_saved_locally": session_status(f"{source}-content")["state"] == "saved",
                 "session_encrypted": True,
                 "automatic_supported": True,
                 "last_run": {

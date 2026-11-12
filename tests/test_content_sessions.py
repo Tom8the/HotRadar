@@ -1,4 +1,5 @@
 import asyncio
+import os
 from datetime import UTC, datetime
 
 import httpx
@@ -102,6 +103,7 @@ def test_success_idempotence_expiry_pause_and_history(event_db, monkeypatch):
     )
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Legacy DPAPI is available only on Windows.")
 def test_credential_store_is_local_encrypted_scoped_and_secure(tmp_path, monkeypatch):
     monkeypatch.setattr(session_store, "ROOT", tmp_path / "sessions")
     credential = [

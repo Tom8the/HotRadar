@@ -4,7 +4,7 @@ import {
   Radar, LayoutDashboard, Flame, ChartNoAxesCombined, Clapperboard, Bookmark,
   Search, SunMoon, Expand, Shrink, RefreshCw, RadioTower, ListFilter, Database,
   Clock, ArrowUpRight, Star, X, ExternalLink, CalendarDays, PlugZap, ArrowLeft,
-  Settings2, GripVertical, ArrowUp, ArrowDown, Pause, Play,
+  Settings2, GripVertical, ArrowUp, ArrowDown, Pause, Play, KeyRound,
 } from "lucide-react";
 import type { Board, DashboardData, HotItem, Snapshot, SnapshotSummary } from "../lib/types";
 import { defaults, normalizePreferences, reorder, visibleBoards, selectedPlatformBoard, filterItems, type Preferences } from "../lib/workspace";
@@ -205,7 +205,7 @@ export default function RadarWorkbench() {
           </header>
           <section className="hr-page-heading"><div><div className="hr-overline">让热点更早被看见</div><h1>{current.name}</h1>
             <p>{view === "overview" ? "汇集抖音、微博与百度热榜，保留原始榜位、源内指标和采样时间。" : view === "events" ? "关联跨平台热点，核对来源证据，保留人工修正与摘要依据。" : view === "trends" ? "观察真实采样中的榜位与源内指标，明确历史覆盖和数据缺口。" : view === "following" ? "持续观察关注的平台榜单和热点事件。" : view === "sources" ? "查看实际采集任务，管理各来源采集周期与启停。" : "查看已验证来源的具体内容、作者、发布时间、互动数与采样依据。"}</p></div>
-            <div className="hr-heading-actions"><button type="button" className="hr-button" onClick={() => { setWall(!wall); if (!wall) updatePreferences({ dark: true }); }}>{wall ? <Shrink /> : <Expand />}{wall ? "返回工作台" : "大屏模式"}</button>
+            <div className="hr-heading-actions">{!wall && view === "contents" && <a className="hr-button" href="/authorization"><KeyRound />采集授权</a>}<button type="button" className="hr-button" onClick={() => { setWall(!wall); if (!wall) updatePreferences({ dark: true }); }}>{wall ? <Shrink /> : <Expand />}{wall ? "返回工作台" : "大屏模式"}</button>
               <button className="hr-button" onClick={() => updatePreferences({ autoRefresh: !preferences.autoRefresh })}>{preferences.autoRefresh ? <Pause /> : <Play />}{preferences.autoRefresh ? "暂停自动刷新" : "恢复自动刷新"}</button>
               <button type="button" className="hr-button hr-button-primary" onClick={() => void refresh()} disabled={loading}><RefreshCw className={loading ? "is-spinning" : ""} />{loading ? "读取中" : "刷新视图"}</button></div></section>
           <div className="hr-context-bar">{view !== "sources" && <div className="hr-period"><button type="button" className={date === today() ? "is-selected" : ""} onClick={() => selectDate(today())}>今日</button>
@@ -256,7 +256,7 @@ export default function RadarWorkbench() {
                 <div className="hr-board-caption"><span>{board.snapshot ? clock(board.snapshot.observed_at) + " 采样" : "当日暂无快照"}</span>
                   <span className={"hr-tag " + (date !== today() ? "" : board.state === "fresh" ? "is-green" : "is-orange")}>{date !== today() ? "历史记录" : labels[board.state]}{board.snapshot?.from_cache ? " · 上游缓存" : ""}</span></div>
                 {board.id === "douyin-wuxi" && <div className="hr-board-warning" role="note">来源为抖音创作者中心，仅作创作参考。查看 App 同款城市榜请切换“📍 无锡榜”，两者历史独立保存。</div>}
-                {board.latest_run?.error_code && <div className="hr-board-warning">最近采集：{board.latest_run.error_code === "session_required" ? "需要刷新本机" + (board.source_id === "weibo" ? "微博登录会话" : "抖音创作者中心会话") : board.latest_run.error_code === "city_unverified" ? "城市未确认为无锡，请在官方同城页重新选择无锡" : board.latest_run.error_code === "partial_parse" ? "部分条目未能解析" : "失败，保留历史快照"}</div>}
+                {board.latest_run?.error_code && <div className="hr-board-warning">最近采集：{board.latest_run.error_code === "session_required" ? <>需要更新登录会话{!wall && <> · <a href="/authorization">采集授权</a></>}</> : board.latest_run.error_code === "city_unverified" ? (board.id === "douyin-wuxi-app" ? "服务器返回的榜单未通过无锡身份校验，请检查服务器网络出口" : "城市未确认为无锡，请在官方同城页重新选择无锡") : board.latest_run.error_code === "partial_parse" ? "部分条目未能解析" : "失败，保留历史快照"}</div>}
                 {cardErrors[board.id] && <div className="hr-board-warning" role="alert">{cardErrors[board.id]}</div>}
                 {board.snapshot && <div className="hr-result-count">匹配 {items.length} / 来源 {board.snapshot.item_count} 条 · {board.id === "douyin-wuxi" ? "按同城列表顺序" : "不改变源排名"}</div>}
                 {!board.snapshot ? <div className="hr-empty"><Clock /><h2>该日期暂无采集记录</h2><p>{board.id.endsWith("-wuxi") ? "无锡榜从首次成功采样开始留存；未采集日期不补造。" : "请选取已有快照的日期；历史不会补造。"}</p><small>最近成功：{clock(board.last_success_at)}</small></div> :

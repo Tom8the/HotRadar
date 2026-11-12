@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, Pause, Play, RadioTower } from "lucide-react";
+import { KeyRound, RefreshCw, Pause, Play, RadioTower } from "lucide-react";
 import type { ManagedSource } from "../lib/types";
 
 function time(value: string | null) { return value ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "尚无记录"; }
@@ -35,7 +35,7 @@ export default function SourceManager({ onChange, autoRefresh }: { onChange: () 
     finally { setBusy(""); }
   }
   return <section className="hr-source-management" aria-label="来源管理">
-    <div className="hr-section-row"><h2><RadioTower />采集来源 <small>抖音 / 微博 / 百度</small></h2><button className="hr-button" onClick={() => void load()}><RefreshCw />读取来源状态</button></div>
+    <div className="hr-section-row"><h2><RadioTower />采集来源 <small>抖音 / 微博 / 百度</small></h2><div className="hr-authorization-actions"><a className="hr-button" href="/authorization"><KeyRound />采集授权</a><button className="hr-button" onClick={() => void load()}><RefreshCw />读取来源状态</button></div></div>
     <p className="hr-management-note">最近24小时任务统计，实际留存始于各来源的首次采样；不代表已通过24小时连续运行验收。暂停采集与暂停页面刷新独立。</p>
     {notice && <div className="hr-success-banner" role="status">{notice}</div>}
     {error && <div className="hr-error-banner" role="alert">{error}</div>}
@@ -47,7 +47,8 @@ export default function SourceManager({ onChange, autoRefresh }: { onChange: () 
       <div className="hr-run-counts">任务 {board.window.total} · 成功 {board.window.success} · 部分 {board.window.partial} · 失败 {board.window.failed} · 未完成 {board.window.unfinished}</div>
       <details><summary>{board.source_name}最近任务</summary><ul className="hr-run-list">{board.recent_runs.map(run => <li key={run.id}><span>{time(run.created_at)}</span><strong>{statuses[run.status] ?? run.status}</strong><span>{run.item_count === null ? "条数未知" : run.item_count + " 条"}</span>{run.error_code && <small>{run.error_code}</small>}</li>)}</ul>{!board.recent_runs.length && <p>统计窗口暂无任务。</p>}</details>
       <details><summary>{board.source_name}配置变更记录</summary>{board.changes.map(change => <p key={change.id}>{time(change.changed_at)} · {change.after.enabled ? "启用" : "暂停"} · {change.after.interval_seconds / 60}分钟</p>)}{!board.changes.length && <p>暂无配置变更。</p>}</details>
-      <small>提供方 {board.provider} · {board.source_id === "baidu" ? "百度官方实时热搜网页 · 无需登录" : board.source_id === "weibo" ? (board.id === "weibo-wuxi" ? "本机微博登录会话 · 官方城市需设为无锡" : "原文可能需微博登录") : board.id === "douyin-wuxi" ? "本机创作者中心会话 · 非抖音 App 无锡榜" : board.id === "douyin-wuxi-app" ? "官方热榜落地页 · 无需登录" : "匿名临时会话"}</small>
+      <small>提供方 {board.provider} · {board.source_id === "baidu" ? "百度官方实时热搜网页 · 无需登录" : board.source_id === "weibo" ? (board.id === "weibo-wuxi" ? "移动微博登录会话 · 官方城市需设为无锡" : "采集无需登录") : board.id === "douyin-wuxi" ? "创作者中心登录会话 · 同城创作热点" : board.id === "douyin-wuxi-app" ? "官方热榜落地页 · 无需登录" : "默认匿名 · 可配置登录会话"}</small>
+      {board.id === "douyin-wuxi-app" && board.latest_run?.error_code === "city_unverified" && <p className="hr-board-warning">服务器收到的榜单未通过无锡身份校验，请检查服务器网络出口。</p>}
     </article>)}</div><small>状态读取：{time(readAt)}（北京时间）</small>
   </section>;
 }

@@ -10,6 +10,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from hotradar.api.contents import router as contents_router
 from hotradar.api.events import router as events_router
+from hotradar.api.platform_sessions import router as sessions_router
 from hotradar.api.queries import dashboard, day_bounds, serialize_snapshot
 from hotradar.api.source_management import router as management_router
 from hotradar.api.trends import router as trends_router
@@ -21,6 +22,7 @@ app.include_router(management_router)
 app.include_router(events_router)
 app.include_router(trends_router)
 app.include_router(contents_router)
+app.include_router(sessions_router)
 
 
 @app.exception_handler(SQLAlchemyError)

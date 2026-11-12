@@ -14,6 +14,7 @@ class Settings:
     interval: int = 900
     timeout: float = 20
     timezone: str = "Asia/Shanghai"
+    douyin_wuxi_proxy: str | None = None
 
 
 def get_settings() -> Settings:
@@ -36,4 +37,5 @@ def get_settings() -> Settings:
         interval=interval,
         timeout=float(os.environ.get("HOTRADAR_REQUEST_TIMEOUT", "20")),
         timezone=os.environ.get("HOTRADAR_TIMEZONE", "Asia/Shanghai"),
+        douyin_wuxi_proxy=os.environ.get("HOTRADAR_DOUYIN_WUXI_PROXY") or None,
     )

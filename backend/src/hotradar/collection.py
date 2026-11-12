@@ -19,6 +19,7 @@ from hotradar.db.models import (
     Item,
     RawPayload,
     SnapshotItem,
+    SourceSettingChange,
     new_id,
 )
 from hotradar.db.session import get_engine, session_factory
@@ -114,7 +115,9 @@ def persist_batch(
     return snapshot
 
 
-async def collect_board(board_id: str, job_key: str, collector=None, retry_delay=2) -> dict:
+async def collect_board(
+    board_id: str, job_key: str, collector=None, retry_delay=2, *, activate=False, max_attempts=3
+) -> dict:
     lock_id = int.from_bytes(hashlib.sha256(board_id.encode()).digest()[:8], signed=True)
     factory = session_factory()
     with get_engine().connect() as lock_connection:
@@ -126,7 +129,7 @@ async def collect_board(board_id: str, job_key: str, collector=None, retry_delay
         try:
             with factory.begin() as session:
                 board = session.get(Board, board_id)
-                if board is None or not board.enabled:
+                if board is None or (not board.enabled and not activate):
                     return {"board": board_id, "status": "disabled"}
                 run = session.scalar(select(CollectionRun).where(CollectionRun.job_key == job_key))
                 if run is not None and run.status in TERMINAL:
@@ -144,7 +147,7 @@ async def collect_board(board_id: str, job_key: str, collector=None, retry_delay
                 source_id = board.source_id
                 interval_seconds = board.interval_seconds
                 attempts = run.attempt_count
-                if attempts >= 3:
+                if attempts >= max_attempts:
                     run.status = "failed"
                     run.finished_at = datetime.now(UTC)
                     run.error_code = "interrupted"
@@ -153,7 +156,9 @@ async def collect_board(board_id: str, job_key: str, collector=None, retry_delay
             source_collector = collector or (
                 BaiduCollector(timeout=get_settings().timeout)
                 if board_id == "baidu-hot"
-                else DouyinAppWuxiCollector(timeout=get_settings().timeout)
+                else DouyinAppWuxiCollector(
+                    timeout=get_settings().timeout, proxy=get_settings().douyin_wuxi_proxy
+                )
                 if board_id == "douyin-wuxi-app"
                 else DouyinWuxiCollector(timeout=get_settings().timeout)
                 if board_id == "douyin-wuxi"
@@ -161,7 +166,8 @@ async def collect_board(board_id: str, job_key: str, collector=None, retry_delay
                 if board_id == "weibo-wuxi"
                 else PlatformCollector(source_id, timeout=get_settings().timeout)
             )
-            while attempts < 3:
+            error_code = None
+            while attempts < max_attempts:
                 attempts += 1
                 with factory.begin() as session:
                     run = session.get(CollectionRun, run_id)
@@ -174,6 +180,19 @@ async def collect_board(board_id: str, job_key: str, collector=None, retry_delay
                     batch = await source_collector.collect()
                     with factory.begin() as session:
                         run = session.get(CollectionRun, run_id)
+                        if activate:
+                            board = session.get(Board, board_id, with_for_update=True)
+                            interval_seconds = board.interval_seconds
+                            if not board.enabled:
+                                board.enabled = True
+                                settings = {"interval_seconds": interval_seconds}
+                                session.add(
+                                    SourceSettingChange(
+                                        board_id=board_id,
+                                        before={**settings, "enabled": False},
+                                        after={**settings, "enabled": True},
+                                    )
+                                )
                         snapshot = persist_batch(session, run, batch, interval_seconds)
                         result = {
                             "board": board_id,
@@ -185,14 +204,15 @@ async def collect_board(board_id: str, job_key: str, collector=None, retry_delay
                         }
                     return result
                 except CollectionError as exc:
+                    error_code = exc.code
                     with factory.begin() as session:
                         run = session.get(CollectionRun, run_id)
                         run.error_code = exc.code
                         run.error_message = str(exc)[:240]
-                        if attempts == 3:
+                        if attempts == max_attempts:
                             run.status = "failed"
                             run.finished_at = datetime.now(UTC)
-                    if attempts < 3:
+                    if attempts < max_attempts:
                         await asyncio.sleep(retry_delay * attempts)
                 except Exception:
                     # Do not put exception reprs (which may contain connection secrets) in records.
@@ -205,7 +225,7 @@ async def collect_board(board_id: str, job_key: str, collector=None, retry_delay
                             "Collection could not be persisted; inspect local runtime."
                         )
                     raise
-            return {"board": board_id, "status": "failed", "run": run_id}
+            return {"board": board_id, "status": "failed", "run": run_id, "error_code": error_code}
         finally:
             lock_connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": lock_id})
             lock_connection.commit()

@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 import httpx
 
 from hotradar.collectors.types import CollectedItem, CollectionBatch, CollectionError
+from hotradar.session_store import cookie_jar, read_session
 
 WEIBO_URL = "https://weibo.com/ajax/side/hotSearch"
 DOUYIN_URL = (
@@ -176,14 +177,47 @@ def parse_douyin(payload: dict, observed_at: datetime) -> CollectionBatch:
 
 
 class PlatformCollector:
-    def __init__(self, source: str, timeout=20, transport=None):
+    def __init__(self, source: str, timeout=20, transport=None, cookies=None):
         if source not in {"weibo", "douyin"}:
             raise ValueError("Unregistered source")
         self.source = source
         self.timeout = timeout
         self.transport = transport
+        self.cookies = cookies
 
     async def collect(self) -> CollectionBatch:
+        if self.source != "douyin" or self.cookies is not None:
+            return await self._collect(self.cookies)
+        try:
+            anonymous = await self._collect(None)
+            if anonymous.items:
+                return anonymous
+        except CollectionError as exc:
+            if exc.code == "network_error":
+                raise
+            cookies = self._fallback_cookies()
+            if cookies is None:
+                raise
+        else:
+            cookies = self._fallback_cookies()
+            if cookies is None:
+                return anonymous
+        return await self._collect(cookies)
+
+    @staticmethod
+    def _fallback_cookies():
+        try:
+            session = read_session("douyin-hot", allow_legacy=False)
+        except (RuntimeError, ValueError, OSError):
+            raise CollectionError("session_required", "Douyin session is unavailable.") from None
+        if session is None:
+            return None
+        cookies = cookie_jar(session["cookies"])
+        if not cookies.jar:
+            raise CollectionError("session_required", "Douyin session has expired.")
+        return cookies
+
+    async def _collect(self, cookies) -> CollectionBatch:
         headers = {
             "User-Agent": "Mozilla/5.0",
             "Referer": "https://www.weibo.com/"
@@ -194,10 +228,11 @@ class PlatformCollector:
             async with httpx.AsyncClient(
                 timeout=httpx.Timeout(self.timeout, connect=5),
                 headers=headers,
+                cookies=cookies,
                 follow_redirects=False,
                 transport=self.transport,
             ) as client:
-                if self.source == "douyin":
+                if self.source == "douyin" and cookies is None:
                     # Anonymous, server-issued temporary cookies remain in this client only.
                     response = await client.get(
                         "https://www.douyin.com/passport/general/login_guiding_strategy/?aid=6383"
@@ -208,6 +243,10 @@ class PlatformCollector:
                 try:
                     payload = response.json()
                 except ValueError as exc:
+                    if cookies is not None:
+                        raise CollectionError(
+                            "session_required", "Douyin did not return business JSON."
+                        ) from None
                     raise CollectionError("invalid_json", "Source did not return JSON.") from exc
                 observed_at = datetime.now(UTC)
                 batch = (
@@ -215,9 +254,29 @@ class PlatformCollector:
                     if self.source == "weibo"
                     else parse_douyin(payload, observed_at)
                 )
+                if cookies is not None:
+                    fields = ("sentence_id", "word", "position", "hot_value", "event_time")
+                    batch = replace(
+                        batch,
+                        raw_payload={
+                            "status_code": 0,
+                            "data": {
+                                "word_list": [
+                                    {key: row.get(key) for key in fields}
+                                    if isinstance(row, dict)
+                                    else {"invalid_row": True}
+                                    for row in payload["data"]["word_list"]
+                                ]
+                            },
+                        },
+                    )
                 age = optional_count(response.headers.get("Age"))
                 return replace(batch, from_cache=bool(age and age > 0))
         except httpx.HTTPStatusError as exc:
+            if cookies is not None and (
+                exc.response.is_redirect or exc.response.status_code in {401, 403}
+            ):
+                raise CollectionError("session_required", "Douyin session rejected.") from None
             raise CollectionError("http_error", f"Source HTTP {exc.response.status_code}.") from exc
         except httpx.RequestError as exc:
             raise CollectionError("network_error", type(exc).__name__) from exc

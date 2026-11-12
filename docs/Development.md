@@ -1,5 +1,16 @@
 # HotRadar 本地开发环境
 
+## 采集授权与服务器迁移
+
+1. 在部署目录执行 `uv sync --locked` 和 `uv run --locked python scripts/configure-platform-sessions.py`。生成的 `HOTRADAR_SESSION_KEY` 用于加密会话，`HOTRADAR_SESSION_ADMIN_TOKEN` 用于管理页提交。也可由部署环境注入这两项。API 和 Worker 必须使用同一个加密密钥和持久会话目录，默认 `data/sessions`，可用 `HOTRADAR_SESSION_DIR` 指定。
+2. 对外部署时为 Next.js 设置 `HOTRADAR_PUBLIC_ORIGIN=https://实际工作台域名`（无尾斜杠），`HOTRADAR_API_URL` 指向内网或回环 API。通过 HTTPS 反代工作台，API 端口仅对工作台和受信环境开放。确认代理转发 `Origin` 和 `Authorization`，避免记录请求头和请求体，验证请求超时至少留 90 秒。回环访问可省略 `HOTRADAR_PUBLIC_ORIGIN`。
+3. 重启 API、Worker 和工作台，从“来源管理”或“爆款内容”进入“采集授权”。每个来源提供官方登录入口。用页面给出的导出命令打开隔离的本机浏览器，登录本人账号。同城来源先在对应官方页面选择无锡。需要时执行 `uv run --locked --extra session-export playwright install chromium` 安装导出浏览器。
+4. 在对应来源导入会话 JSON 并填入部署的管理令牌。页面也接受同平台的 Cookie 数组或仅含该平台 Cookie 的 Playwright storage state。服务器采集并验证一批真实数据，成功后启用该来源。更新验证失败时保留此前保存的会话和数据。导出文件含登录凭据，在导入成功后从本机删除。
+
+Windows 原有 `*.dpapi` 仍供原 Windows 用户读取。Linux 需要重新登录并导入一次。之后换机可迁移 `*.fernet` 密文和原加密密钥，分别通过私有渠道转移；平台可能要求新服务器重新登录。管理令牌可在迁移时重新生成。已有历史仍由 PostgreSQL 保存，迁移历史需单独迁移数据库。
+
+抖音总榜优先匿名，匿名失败或空榜时可用已验证会话。微博热搜、百度实时热搜继续匿名。抖音原生无锡榜独立匿名采集，如果部署机反复出现 `city_unverified`，可给 API/Worker 配置受信的 `HOTRADAR_DOUYIN_WUXI_PROXY` 无锡出口，仅作用于原生无锡榜请求。配置后仍需通过城市名、城市编号、榜单标签和逐条榜位上下文校验。可运行 `uv run --locked python scripts/verify-douyin-app-wuxi.py` 做真实验证。
+
 ## 百度实时热搜（2026-10-29）
 
 执行 `uv run --locked hotradar-seed` 注册 `baidu-hot`，新建时默认启用15分钟；重复注册保留既有周期及暂停设置。更新后重启后端、Worker并构建/重启前端；桌面入口在未运行时可自动完成启动。无需新增依赖、凭据或数据库迁移，百度不会创建具体内容任务。页面来源管理支持15/30/60分钟和独立启停；历史自首次实际采样开始。只读核查执行 `uv run --locked python scripts/verify-baidu-board.py`，输出 `data/baidu-probe/verification.json`。参见验收（本地留档 `BaiduBoardAcceptance.md`）。
@@ -8,7 +19,7 @@
 
 已有正常本机会话、且官方同城页已选择无锡时，使用 `uv run --locked python scripts/verify-weibo-wuxi-board.py` 只验证访问；加 `--activate` 才启用并通过正式分发另取真实批次入库。结果写入忽略的 `data/weibo-wuxi-probe/verification.json`。新环境seed默认禁用此榜；必须先重启到包含无锡分发的新Worker，再验证启用，避免旧版本按平台总榜采集。既有运行配置不会被seed重置。
 
-Cookie不得放入命令参数或聊天。登录过期时在微博官方正常页面扫码刷新，并通过本机私有输入合并保存DPAPI；城市变化时需到官方城市选择页重新选择无锡。界面来源管理可独立调整周期或暂停，暂停保留历史；微博总榜和具体内容任务独立。实际数据、页面与测试证据见验收（本地留档 `WeiboWuxiBoardAcceptance.md`）。
+登录过期时在微博官方页面重新登录，选择无锡后在“采集授权”导入会话。旧 Windows 环境仍支持 DPAPI。界面来源管理可独立调整周期或暂停，暂停保留历史；微博总榜和具体内容任务独立。实际数据、页面与测试证据见验收（本地留档 `WeiboWuxiBoardAcceptance.md`）。
 
 Python3.12、uv、Node.js24/npm、Git和Docker。后端与前端使用项目独立依赖，不复用Ai-news运行目录。
 
@@ -116,7 +127,7 @@ uv run --locked python scripts/verify-wuxi-board.py --activate
 
 本轮不把同城榜自动加入事件/趋势的既有成员池。验证详情见无锡榜验收（本地留档 `WuxiBoardAcceptance.md`），本机业务核查记录在忽略的`data/wuxi-probe/`。没有新增依赖、迁移或系统服务。
 
-Cookie由对应平台正常网页会话获得，只通过本机私有进程输入交给scripts/save-platform-session.py；不要在终端命令行、聊天、Git或业务附件粘贴Cookie。密文位于data/sessions/weibo.dpapi与douyin.dpapi，Windows当前用户DPAPI绑定本机账号，已忽略；新机器/账号需重新取得正常会话。过期需要正常打开平台刷新会话，必要时用户扫码，不重复使用第三方硬编码Cookie。
+Windows 兼容流程可通过本机私有进程输入交给 `scripts/save-platform-session.py`，密文位于 `data/sessions/weibo.dpapi` 与 `douyin.dpapi`，绑定原 Windows 用户。新服务器使用[采集授权与服务器迁移](#采集授权与服务器迁移)。
 
 已有有效本机会话时分别验证并启用：
 
@@ -135,7 +146,7 @@ uv run --locked python scripts/pause-content-source.py weibo
 uv run --locked python scripts/pause-content-source.py douyin
 ```
 
-每条命令仅暂停对应具体内容来源；verification.controls保留记录，历史观察保留。恢复需再次运行该平台验证命令。页面“来源管理”控制话题榜配置，不控制内容任务。会话失效或上游拒绝自动暂停该来源；失败任务不将缺失数量写为0，不输出原响应凭据。抖音精选接口使用本机实际UIFID，不复制/伪造/回放SDK签名；无需常驻本次观察浏览器，后台HTTP闭环已验证。正常登录页供会话过期时人工刷新，Cookie仍本机DPAPI加密。
+每条命令仅暂停对应具体内容来源；verification.controls保留记录，历史观察保留。可通过“采集授权”重新验证恢复，也可运行该平台验证命令。会话失效或上游拒绝自动暂停该来源；失败任务不将缺失数量写为0，不输出原响应凭据。抖音精选接口使用有效会话的实际 UIFID，后台 HTTP 采集可独立于登录浏览器运行。
 
 GET /api/v1/trends?start=YYYY-MM-DD&end=YYYY-MM-DD读取覆盖及事件；GET /api/v1/trends/events/{UUID}使用同样日期参数读取来源序列。Next.js /api/trends为只读代理。界面支持当日、前一日、近七天和最多31日自定义，榜位叠加但源内指标分开；大屏轮播默认关闭，可主动开始或暂停，退出大屏停止轮播。
 

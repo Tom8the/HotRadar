@@ -122,7 +122,11 @@ class DouyinWuxiCollector:
 
     async def collect(self):
         try:
-            cookies = self.cookies if self.cookies is not None else client_cookies("douyin")
+            cookies = (
+                self.cookies
+                if self.cookies is not None
+                else client_cookies("douyin", scope="douyin-wuxi")
+            )
         except (RuntimeError, ValueError, OSError):
             raise CollectionError(
                 "session_required", "Local Douyin session is unavailable."
@@ -149,6 +153,10 @@ class DouyinWuxiCollector:
                 batch = parse_wuxi(response.json(), datetime.now(UTC), CITY)
                 return replace(batch, from_cache=bool(optional_count(response.headers.get("Age"))))
         except httpx.HTTPStatusError as exc:
+            if exc.response.is_redirect or exc.response.status_code in {401, 403}:
+                raise CollectionError(
+                    "session_required", "Creator Center session rejected."
+                ) from None
             raise CollectionError(
                 "http_error", f"City source HTTP {exc.response.status_code}."
             ) from None

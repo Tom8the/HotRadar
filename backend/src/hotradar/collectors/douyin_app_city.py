@@ -154,8 +154,9 @@ def parse_app_wuxi(payload, observed_at):
 
 
 class DouyinAppWuxiCollector:
-    def __init__(self, timeout=20, transport=None):
+    def __init__(self, timeout=20, transport=None, proxy=None):
         self.timeout, self.transport = timeout, transport
+        self.proxy = proxy
 
     async def collect(self):
         try:
@@ -163,6 +164,7 @@ class DouyinAppWuxiCollector:
             async with httpx.AsyncClient(
                 timeout=httpx.Timeout(self.timeout, connect=5),
                 transport=self.transport,
+                proxy=self.proxy,
                 follow_redirects=False,
                 headers={"User-Agent": "Mozilla/5.0", "Referer": PAGE},
             ) as client:

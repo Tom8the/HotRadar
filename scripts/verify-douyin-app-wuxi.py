@@ -12,6 +12,7 @@ from hotradar.bootstrap import seed_sources
 from hotradar.collection import collect_board
 from hotradar.collectors.douyin_app_city import BOARD_ID, ENDPOINT, PARAMS, DouyinAppWuxiCollector
 from hotradar.collectors.types import CollectionError
+from hotradar.config import get_settings
 from hotradar.db.models import Board, SourceSettingChange
 from hotradar.db.session import session_factory
 
@@ -20,10 +21,15 @@ async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--activate", action="store_true")
     args = parser.parse_args()
-    batch = await DouyinAppWuxiCollector().collect()
+    settings = get_settings()
+    batch = await DouyinAppWuxiCollector(
+        timeout=settings.timeout, proxy=settings.douyin_wuxi_proxy
+    ).collect()
     if not batch.items or batch.rejected_count:
         raise CollectionError("verification_incomplete", "Need a complete nonempty city sample.")
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(
+        timeout=settings.timeout, proxy=settings.douyin_wuxi_proxy
+    ) as client:
         response = await client.get(
             ENDPOINT,
             params={

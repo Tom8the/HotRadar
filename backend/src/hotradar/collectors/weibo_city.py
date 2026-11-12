@@ -151,7 +151,11 @@ class WeiboWuxiCollector:
 
     async def collect(self):
         try:
-            cookies = self.cookies if self.cookies is not None else client_cookies("weibo")
+            cookies = (
+                self.cookies
+                if self.cookies is not None
+                else client_cookies("weibo", scope="weibo-wuxi")
+            )
         except (RuntimeError, ValueError, OSError):
             raise CollectionError(
                 "session_required", "Local Weibo session is unavailable."

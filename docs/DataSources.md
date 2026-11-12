@@ -102,7 +102,7 @@ M3没有新增外部来源、付费API或平台账户。事件和摘要只由已
 
 三批自动采集留存57条抖音观察，默认30分钟；微博继续运行。原文作者/发布时间与内容池已核对，幂等、独立停启及真实字段回放通过。最新证据见SDK验收（本地留档 `DouyinSdkAcceptance.md`），播放量、增长与爆款判定尚未验收。
 
-data/sessions/weibo.dpapi与douyin.dpapi使用Windows当前用户DPAPI加密，目录ACL限制本机访问，已被Git忽略。只读取对应平台域Cookie；请求HTTPS且不跟随重定向。Cookie不进入业务响应、聊天、API或日志；会话失效/上游拒绝自动暂停并保留历史。实测及截图见会话验收（本地留档 `SessionCollectionAcceptance.md`）。
+页面导入的会话以独立来源的 Fernet 密文保存，API 和 Worker 读取同一私有目录。旧 Windows 安装保留对当前用户 DPAPI 文件的兼容。仅接受对应平台域 Cookie，采集请求使用 HTTPS 且不跟随重定向。凭据不进入业务响应或日志，内容会话失效或被上游拒绝时自动暂停并保留历史。操作方式见[采集授权与服务器迁移](Development.md#采集授权与服务器迁移)。
 
 ## M4趋势数据
 

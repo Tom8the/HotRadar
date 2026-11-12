@@ -8,7 +8,7 @@ import httpx
 
 from hotradar.collectors.platforms import optional_count
 from hotradar.collectors.types import CollectionError
-from hotradar.session_store import client_cookies, load
+from hotradar.session_store import client_cookies
 
 VERSION = "douyin-selected-session-content-v1"
 FEED_URL = "https://www.douyin.com/aweme/v2/web/module/feed/"
@@ -100,13 +100,17 @@ def parse_douyin_content(row, observed_at):
 async def fetch_douyin(*, verify=False, transport=None, cookies=None, uifid=None):
     if cookies is None:
         try:
-            cookies = client_cookies("douyin")
-            uifid = next(
-                (c["value"] for c in load("douyin")["cookies"] if c["name"].lower() == "uifid"),
-                None,
-            )
+            cookies = client_cookies("douyin", scope="douyin-content")
         except (RuntimeError, ValueError, OSError):
-            raise CollectionError("session_required", "Local session is unavailable.") from None
+            raise CollectionError("session_required", "Platform session is unavailable.") from None
+    if uifid is None and isinstance(cookies, httpx.Cookies):
+        request = httpx.Request("POST", FEED_URL)
+        cookies.set_cookie_header(request)
+        for part in request.headers.get("cookie", "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name.lower() == "uifid":
+                uifid = value
+                break
     headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://www.douyin.com/jingxuan"}
     if uifid:
         headers["uifid"] = uifid
