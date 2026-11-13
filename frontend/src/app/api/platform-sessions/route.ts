@@ -3,7 +3,7 @@ import { isLocalWorkspaceOrigin } from "../../../lib/local-origin";
 
 export const dynamic = "force-dynamic";
 const base = process.env.HOTRADAR_API_URL ?? "http://127.0.0.1:18810";
-const scopes = new Set(["douyin-hot", "douyin-creator-hot", "douyin-wuxi", "douyin-content", "weibo-wuxi", "weibo-content"]);
+const scopes = new Set(["douyin-hot", "douyin-creator-hot", "douyin-wuxi", "douyin-content", "weibo", "weibo-wuxi", "weibo-content"]);
 const browserActions = new Set(["open", "frame", "input", "city", "login", "verify", "close"]);
 const noStore = { "Cache-Control": "no-store" };
 

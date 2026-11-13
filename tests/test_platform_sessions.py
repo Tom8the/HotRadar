@@ -1,5 +1,7 @@
 import os
 from datetime import UTC, datetime
+from json import loads
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -126,3 +128,60 @@ async def test_douyin_uses_verified_fallback_after_anonymous_rejection(portable)
     assert len(calls) == 3 and batch.items[0].title == "话题"
     assert "must-not-be-retained" not in str(batch.raw_payload)
     assert batch.observed_at <= datetime.now(UTC)
+
+
+@pytest.mark.asyncio
+async def test_one_weibo_login_enables_both_sources_only_after_both_probes(portable, monkeypatch):
+    calls = []
+
+    async def fetch(*, verify, cookies):
+        calls.append("content")
+        assert verify and cookies.get("session")
+        return ([{"external_id": "1"}], 0)
+
+    class City:
+        def __init__(self, timeout, cookies):
+            calls.append("city")
+            self.cookies = cookies
+
+        async def collect(self):
+            if self.cookies.get("session") == "rejected":
+                raise CollectionError("city_unverified", "Wrong city.")
+            return sample()
+
+    async def collect_content(key, *, verify, activate, fetcher):
+        calls.append("save-content")
+        items, rejected = await fetcher(verify=verify)
+        assert verify and activate and items and rejected == 0 and key.startswith("browser-auth:")
+        return {"status": "success", "item_count": len(items)}
+
+    async def collect_city(board_id, key, collector, activate, max_attempts):
+        calls.append("save-city")
+        batch = await collector.collect()
+        assert board_id == "weibo-wuxi" and activate and max_attempts == 1
+        assert key.startswith("browser-auth:")
+        return {"status": "success", "items": len(batch.items)}
+
+    monkeypatch.setattr(platform_sessions, "fetch_weibo", fetch)
+    monkeypatch.setattr(platform_sessions, "WeiboWuxiCollector", City)
+    monkeypatch.setattr(platform_sessions, "collect_weibo", collect_content)
+    monkeypatch.setattr(platform_sessions, "collect_board", collect_city)
+    monkeypatch.setattr(platform_sessions, "get_settings", lambda: SimpleNamespace(timeout=20))
+
+    with pytest.raises(platform_sessions.SessionVerificationError) as failure:
+        await platform_sessions.verify_weibo_login(credential("rejected"))
+    assert failure.value.detail == "city_unverified"
+    assert calls == ["content", "city"]
+    assert not session_store.portable_path("weibo-content").exists()
+    assert not session_store.portable_path("weibo-wuxi").exists()
+
+    calls.clear()
+    response = await platform_sessions.verify_weibo_login(credential())
+    payload = loads(response.body)
+    assert calls == ["content", "city", "save-content", "save-city"]
+    assert payload["content_item_count"] == 1
+    assert payload["city_item_count"] == len(sample().items)
+    assert payload["item_count"] == payload["content_item_count"] + payload["city_item_count"]
+    assert payload["status"] == "success" and payload["state"] == "saved"
+    assert session_store.read_session("weibo-content")["cookies"] == credential()
+    assert session_store.read_session("weibo-wuxi")["cookies"] == credential()

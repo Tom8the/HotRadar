@@ -63,6 +63,7 @@ ASSET_HOSTS = {
 LOGIN_BUTTONS = {
     "douyin-hot": "登录",
     "douyin-content": "登录",
+    "weibo": "登录/注册",
     "weibo-wuxi": "登录/注册",
     "weibo-content": "登录/注册",
 }
@@ -80,6 +81,259 @@ ENLARGE_WEIBO_QR = """
     image.parentElement.style.overflow = "visible";
 }
 """
+# Douyin's creator document is cross-origin isolated and does not deliver Playwright's
+# trusted mouse events to the page, so clicks on identity verification do nothing.
+# The marker records events that actually land; a miss falls back to DOM activation.
+# Classic script, not a function: Playwright evaluates init scripts as programs.
+TRUSTED_INPUT_OBSERVER = """
+if (window.__hotradarTrustedCount === undefined) window.__hotradarTrustedCount = 0;
+addEventListener("pointerdown", (event) => {
+    if (event.isTrusted) window.__hotradarTrustedCount += 1;
+}, true);
+addEventListener("mousedown", (event) => {
+    if (event.isTrusted) window.__hotradarTrustedCount += 1;
+}, true);
+addEventListener("click", (event) => {
+    if (event.isTrusted) window.__hotradarTrustedCount += 1;
+}, true);
+"""
+HIT_TEST = """
+([x, y]) => {
+    let el = document.elementFromPoint(x, y);
+    while (el && el.shadowRoot) {
+        const next = el.shadowRoot.elementFromPoint(x, y);
+        if (!next || next === el) break;
+        el = next;
+    }
+    return el;
+}
+"""
+IFRAME_ORIGIN = """
+(el) => {
+    if (!el || el.tagName !== "IFRAME") return null;
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+        dx: rect.left + (parseFloat(style.borderLeftWidth) || 0),
+        dy: rect.top + (parseFloat(style.borderTopWidth) || 0),
+    };
+}
+"""
+DOM_POINTER = """
+(el, point) => {
+    const x = point.x;
+    const y = point.y;
+    const phase = point.phase;
+    const base = {
+        bubbles: true, cancelable: true, composed: true, view: window,
+        clientX: x, clientY: y, screenX: x, screenY: y, button: 0,
+    };
+    const pointer = (type, buttons) => el.dispatchEvent(new PointerEvent(type, {
+        ...base, buttons, pointerId: 1, pointerType: "mouse", isPrimary: true,
+        width: 1, height: 1, pressure: buttons ? 0.5 : 0,
+    }));
+    const mouse = (type, buttons) => el.dispatchEvent(new MouseEvent(type, {...base, buttons}));
+    if (phase === "down" || phase === "click") {
+        try { el.focus({preventScroll: true}); } catch (error) { /* not focusable */ }
+        pointer("pointerover", 0);
+        mouse("mouseover", 0);
+        pointer("pointerdown", 1);
+        mouse("mousedown", 1);
+    }
+    if (phase === "move") {
+        pointer("pointermove", 1);
+        mouse("mousemove", 1);
+    }
+    if (phase === "up" || phase === "click") {
+        pointer("pointerup", 0);
+        mouse("mouseup", 0);
+    }
+    if (phase === "click" && typeof el.click === "function") el.click();
+}
+"""
+FIND_EDITABLE = """
+([x, y]) => {
+    const blocked = new Set([
+        "button", "submit", "reset", "checkbox", "radio",
+        "file", "hidden", "image", "range", "color",
+    ]);
+    function isEditable(node) {
+        if (!node || node.nodeType !== 1) return false;
+        if (node.tagName === "TEXTAREA") return !node.disabled && !node.readOnly;
+        if (node.tagName === "INPUT") {
+            const type = (node.type || "text").toLowerCase();
+            return !blocked.has(type) && !node.disabled && !node.readOnly;
+        }
+        return node.isContentEditable === true;
+    }
+    const stack = document.elementsFromPoint(x, y);
+    for (const node of stack) {
+        if (isEditable(node)) return node;
+    }
+    const top = stack[0];
+    if (!top || top.tagName === "IFRAME") return null;
+    const label = top.closest && top.closest("label");
+    if (label) {
+        const control = label.control || label.querySelector("input, textarea");
+        if (isEditable(control)) return control;
+    }
+    let host = top;
+    for (let depth = 0; host && depth < 4; depth += 1) {
+        const rect = host.getBoundingClientRect();
+        if (rect.width > 0 && rect.width <= 640 && rect.height > 0 && rect.height <= 160) {
+            const selector = "input, textarea, [contenteditable='true']";
+            const inner = [...host.querySelectorAll(selector)].find(isEditable);
+            if (inner) return inner;
+        }
+        host = host.parentElement;
+    }
+    return null;
+}
+"""
+READ_VALUE = """
+(el) => el.isContentEditable ? (el.innerText || "") : String(el.value ?? "")
+"""
+FOCUS_FIELD = """
+(el) => {
+    try { el.focus({preventScroll: true}); } catch (error) { /* not focusable */ }
+    if (typeof el.click === "function") el.click();
+}
+"""
+WRITE_VALUE = """
+(el, text) => {
+    function inserted(next) {
+        const selector = "button, [role='button'], div, a, span";
+        const button = [...el.ownerDocument.querySelectorAll(selector)].find(node => {
+            if (node.contains(el)) return false;
+            return (node.innerText || "").trim() === "验证";
+        });
+        let verifyEnabled = null;
+        if (button) {
+            let disabled = false;
+            let current = button;
+            for (let depth = 0; current && depth < 4; depth += 1) {
+                const marked = current.getAttribute("aria-disabled") === "true";
+                if (current.disabled || marked) disabled = true;
+                current = current.parentElement;
+            }
+            verifyEnabled = !disabled;
+        }
+        return {value: next, verifyEnabled};
+    }
+    try { el.focus({preventScroll: true}); } catch (error) { /* not focusable */ }
+    if (el.isContentEditable) {
+        const next = (el.innerText || "") + text;
+        el.textContent = next;
+        const inputEvent = new InputEvent("input", {
+            bubbles: true, composed: true, data: text, inputType: "insertText",
+        });
+        el.dispatchEvent(inputEvent);
+        el.dispatchEvent(new Event("change", {bubbles: true, composed: true}));
+        return inserted(el.innerText || "");
+    }
+    const value = String(el.value ?? "");
+    const start = typeof el.selectionStart === "number" ? el.selectionStart : value.length;
+    const end = typeof el.selectionEnd === "number" ? el.selectionEnd : start;
+    const current = value;
+    const next = current.slice(0, start) + text + current.slice(end);
+    const prototype = el.tagName === "TEXTAREA"
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(prototype, "value").set;
+    setter.call(el, next);
+    const tracker = el._valueTracker;
+    if (tracker) tracker.setValue(current);
+    const caret = start + text.length;
+    try { el.setSelectionRange(caret, caret); } catch (error) { /* unsupported */ }
+    const last = text.slice(-1);
+    el.dispatchEvent(new KeyboardEvent("keydown", {
+        bubbles: true, composed: true, key: last, cancelable: true,
+    }));
+    el.dispatchEvent(new InputEvent("beforeinput", {
+        bubbles: true, composed: true, cancelable: true,
+        data: text, inputType: "insertText",
+    }));
+    el.dispatchEvent(new InputEvent("input", {
+        bubbles: true, composed: true, data: text, inputType: "insertText",
+    }));
+    el.dispatchEvent(new KeyboardEvent("keyup", {
+        bubbles: true, composed: true, key: last,
+    }));
+    el.dispatchEvent(new CompositionEvent("compositionend", {
+        bubbles: true, composed: true, data: text,
+    }));
+    el.dispatchEvent(new Event("change", {bubbles: true, composed: true}));
+    return inserted(String(el.value ?? ""));
+}
+"""
+EDIT_VALUE = """
+(el, key) => {
+    try { el.focus({preventScroll: true}); } catch (error) { /* not focusable */ }
+    if (el.isContentEditable) return el.innerText || "";
+    const value = String(el.value ?? "");
+    let start = typeof el.selectionStart === "number" ? el.selectionStart : value.length;
+    let end = typeof el.selectionEnd === "number" ? el.selectionEnd : start;
+    if (key === "ControlOrMeta+A") {
+        try { el.setSelectionRange(0, value.length); } catch (error) { /* unsupported */ }
+        return value;
+    }
+    if (start === end && key === "Backspace" && start > 0) start -= 1;
+    else if (start === end && key === "Delete" && end < value.length) end += 1;
+    else if (start === end) return value;
+    const next = value.slice(0, start) + value.slice(end);
+    const prototype = el.tagName === "TEXTAREA"
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(prototype, "value").set.call(el, next);
+    const tracker = el._valueTracker;
+    if (tracker) tracker.setValue(value);
+    try { el.setSelectionRange(start, start); } catch (error) { /* unsupported */ }
+    el.dispatchEvent(new InputEvent("input", {
+        bubbles: true, composed: true, inputType: "deleteContentBackward",
+    }));
+    el.dispatchEvent(new Event("change", {bubbles: true, composed: true}));
+    return String(el.value ?? "");
+}
+"""
+VERIFY_BUTTON = """
+(el) => {
+    const selector = "button, [role='button'], div, a, span";
+    const button = [...el.ownerDocument.querySelectorAll(selector)].find(node => {
+        if (node.contains(el)) return false;
+        return (node.innerText || "").trim() === "验证";
+    });
+    if (!button) return null;
+    let current = button;
+    for (let depth = 0; current && depth < 4; depth += 1) {
+        if (current.disabled || current.getAttribute("aria-disabled") === "true") return false;
+        current = current.parentElement;
+    }
+    return true;
+}
+"""
+
+
+def browser_platform(scope: str) -> str:
+    if scope == "weibo":
+        return "weibo"
+    return SCOPES[scope]
+
+
+def trusted_input_landed(before, after) -> bool:
+    if before is None or after is None or len(before) != len(after):
+        return False
+    return any(
+        isinstance(left, (int, float)) and isinstance(right, (int, float)) and right > left
+        for left, right in zip(before, after, strict=True)
+    )
+
+
+def text_was_inserted(before, after, text) -> bool:
+    return isinstance(before, str) and isinstance(after, str) and after != before and text in after
+
+
+def can_address_dom(page) -> bool:
+    return callable(getattr(page, "evaluate_handle", None))
 
 
 class BrowserLoginError(Exception):
@@ -108,11 +362,13 @@ class LoginBrowser:
     context: BrowserContext | None = None
     expiry: asyncio.Task | None = None
     pointer_page: Page | None = None
+    pointer_dom: bool = False
+    text_target: object | None = None
 
     async def open(self, url: str):
         from playwright.async_api import Error, async_playwright
 
-        platform = SCOPES[self.scope]
+        platform = browser_platform(self.scope)
         self.driver = await async_playwright().start()
         configured = os.environ.get("HOTRADAR_BROWSER_CHANNEL")
         channels = ("msedge", "chrome", "chromium") if os.name == "nt" else ("chromium",)
@@ -149,6 +405,7 @@ class LoginBrowser:
 
         await self.context.route("**/*", http_request)
         await self.context.route_web_socket("**/*", socket_request)
+        await self.context.add_init_script(TRUSTED_INPUT_OBSERVER)
         await self.context.new_page()
         await self.open_login(url)
 
@@ -168,46 +425,276 @@ class LoginBrowser:
 
     async def navigate(self, url: str):
         await self.release_pointer()
+        await self._clear_text_target()
         await self.page().goto(url, wait_until="commit", timeout=15000)
 
     async def open_login(self, url: str):
         from playwright.async_api import TimeoutError
 
         await self.navigate(url)
-        if label := LOGIN_BUTTONS.get(self.scope):
-            with suppress(TimeoutError):
-                await self.page().get_by_text(label, exact=True).first.click(timeout=6000)
+        label = LOGIN_BUTTONS.get(self.scope)
+        if not label:
+            return
+        page = self.page()
+        before = await self._input_marks(page)
+        with suppress(TimeoutError):
+            await page.get_by_text(label, exact=True).first.click(timeout=6000)
+        if before is None or trusted_input_landed(before, await self._input_marks(page)):
+            return
+        try:
+            box = await page.get_by_text(label, exact=True).first.bounding_box(timeout=1000)
+        except Exception:  # noqa: BLE001 -- the login control may already be absent
+            return
+        if not box:
+            return
+        await self._dom_pointer(
+            page,
+            "click",
+            int(box["x"] + box["width"] / 2),
+            int(box["y"] + box["height"] / 2),
+        )
 
     async def frame(self):
         page = await self.viewport_page()
-        if SCOPES[self.scope] == "weibo" and urlsplit(page.url).hostname == "passport.weibo.com":
+        on_weibo_passport = (
+            browser_platform(self.scope) == "weibo"
+            and urlsplit(page.url).hostname == "passport.weibo.com"
+        )
+        if on_weibo_passport:
             await page.evaluate(ENLARGE_WEIBO_QR)
         return await page.screenshot(type="jpeg", quality=82, timeout=3000)
+
+    async def _input_marks(self, page):
+        frames = getattr(page, "frames", None)
+        if not frames and getattr(page, "evaluate", None) is None:
+            return None
+        marks = []
+        for frame in frames or [page]:
+            try:
+                count = await frame.evaluate("() => window.__hotradarTrustedCount || 0")
+            except Exception:  # noqa: BLE001 -- a detached frame has no input marker
+                marks.append(None)
+            else:
+                marks.append(count)
+        return marks
+
+    async def _element_at(self, page, x, y):
+        target = page
+        for _ in range(8):
+            handle = await target.evaluate_handle(HIT_TEST, [x, y])
+            element = handle.as_element()
+            if element is None:
+                await handle.dispose()
+                return None
+            origin = await element.evaluate(IFRAME_ORIGIN)
+            if not origin:
+                return element, x, y
+            frame = await element.content_frame()
+            await element.dispose()
+            if frame is None:
+                return None
+            x -= origin["dx"]
+            y -= origin["dy"]
+            target = frame
+        return None
+
+    async def _dom_pointer(self, page, phase, x, y):
+        found = await self._element_at(page, x, y)
+        if not found:
+            return
+        element, local_x, local_y = found
+        try:
+            await element.evaluate(DOM_POINTER, {"phase": phase, "x": local_x, "y": local_y})
+        finally:
+            await element.dispose()
 
     async def pointer(self, phase: str, x: int, y: int):
         if phase in {"click", "down"}:
             await self.release_pointer()
             page = await self.viewport_page()
+            before = await self._input_marks(page)
             if phase == "click":
                 await page.mouse.click(x, y)
+                if before is not None and not trusted_input_landed(
+                    before, await self._input_marks(page)
+                ):
+                    await self._dom_pointer(page, "click", x, y)
+                await self._remember_text_target(page, x, y)
                 return
             await page.mouse.move(x, y)
             await page.mouse.down()
             self.pointer_page = page
+            self.pointer_dom = before is not None and not trusted_input_landed(
+                before, await self._input_marks(page)
+            )
+            if self.pointer_dom:
+                await self._dom_pointer(page, "down", x, y)
         elif self.pointer_page and not self.pointer_page.is_closed():
             await self.pointer_page.mouse.move(x, y)
             if phase == "up":
+                if self.pointer_dom:
+                    await self._dom_pointer(self.pointer_page, "up", x, y)
                 await self.release_pointer()
+            elif self.pointer_dom:
+                await self._dom_pointer(self.pointer_page, "move", x, y)
+
+    async def _clear_text_target(self):
+        target, self.text_target = self.text_target, None
+        if target is not None:
+            with suppress(Exception):
+                await target.dispose()
+
+    async def _editable_at(self, page, x, y):
+        target = page
+        for _ in range(8):
+            handle = await target.evaluate_handle(FIND_EDITABLE, [x, y])
+            element = handle.as_element()
+            if element is not None:
+                return element
+            await handle.dispose()
+            hit = await target.evaluate_handle(HIT_TEST, [x, y])
+            hit_element = hit.as_element()
+            if hit_element is None:
+                await hit.dispose()
+                return None
+            origin = await hit_element.evaluate(IFRAME_ORIGIN)
+            if not isinstance(origin, dict):
+                await hit_element.dispose()
+                return None
+            frame = await hit_element.content_frame()
+            await hit_element.dispose()
+            if frame is None:
+                return None
+            x -= origin["dx"]
+            y -= origin["dy"]
+            target = frame
+        return None
+
+    async def _remember_text_target(self, page, x, y):
+        if not can_address_dom(page):
+            return
+        try:
+            element = await self._editable_at(page, x, y)
+        except Exception:  # noqa: BLE001 -- hit testing must not break the click itself
+            return
+        if element is None:
+            return
+        await self._clear_text_target()
+        with suppress(Exception):
+            await element.evaluate(FOCUS_FIELD)
+        self.text_target = element
+
+    async def _current_text_target(self, page):
+        target = self.text_target
+        if target is not None:
+            try:
+                connected = await target.evaluate(
+                    "el => Boolean(el && el.isConnected && !el.disabled && !el.readOnly)"
+                )
+            except Exception:  # noqa: BLE001 -- a detached input handle is simply stale
+                connected = False
+            if connected:
+                return target
+            await self._clear_text_target()
+        frames = getattr(page, "frames", None) or [page]
+        for frame in frames:
+            try:
+                handle = await frame.evaluate_handle(
+                    """() => {
+                        const el = document.activeElement;
+                        if (!el || el === document.body) return null;
+                        const type = (el.type || "text").toLowerCase();
+                        const blocked = [
+                            "button", "submit", "reset", "checkbox", "radio", "file", "hidden",
+                        ];
+                        if (el.tagName === "INPUT" && blocked.includes(type)) return null;
+                        const editable = el.tagName === "INPUT" || el.tagName === "TEXTAREA";
+                        if (editable || el.isContentEditable) {
+                            return el;
+                        }
+                        return null;
+                    }"""
+                )
+            except Exception:  # noqa: BLE001 -- the frame may already be gone
+                continue
+            element = handle.as_element()
+            if element is not None:
+                self.text_target = element
+                return element
+            await handle.dispose()
+        return None
+
+    async def _verify_button_ready(self, target, text):
+        if len(text) < 4:
+            return
+        try:
+            enabled = await target.evaluate(VERIFY_BUTTON)
+        except Exception:  # noqa: BLE001 -- button probing is confirmatory
+            return
+        if enabled is False:
+            raise BrowserLoginError("text_input_rejected")
+
+    async def insert_text(self, text: str):
+        page = await self.viewport_page()
+        if not can_address_dom(page):
+            await page.keyboard.type(text)
+            return
+        target = await self._current_text_target(page)
+        if target is None:
+            raise BrowserLoginError("text_target_missing")
+        before = str(await target.evaluate(READ_VALUE) or "")
+        with suppress(Exception):
+            await target.evaluate(FOCUS_FIELD)
+        with suppress(Exception):
+            await page.keyboard.type(text)
+        after = str(await target.evaluate(READ_VALUE) or "")
+        if text_was_inserted(before, after, text):
+            await self._verify_button_ready(target, text)
+            return
+        written = await target.evaluate(WRITE_VALUE, text)
+        value = written.get("value") if isinstance(written, dict) else written
+        if not text_was_inserted(before, str(value or ""), text):
+            raise BrowserLoginError("text_input_rejected")
+        if (
+            len(text) >= 4
+            and isinstance(written, dict)
+            and written.get("verifyEnabled") is False
+        ):
+            raise BrowserLoginError("text_input_rejected")
+
+    async def press_key(self, key: str):
+        page = await self.viewport_page()
+        if not can_address_dom(page):
+            await page.keyboard.press(key)
+            return
+        editing = key in {"Backspace", "Delete", "ControlOrMeta+A"}
+        target = await self._current_text_target(page)
+        if editing and target is None:
+            raise BrowserLoginError("text_target_missing")
+        before = str(await target.evaluate(READ_VALUE) or "") if target is not None else ""
+        with suppress(Exception):
+            if target is not None:
+                await target.evaluate(FOCUS_FIELD)
+            await page.keyboard.press(key)
+        if target is not None and key == "ControlOrMeta+A":
+            await target.evaluate(EDIT_VALUE, key)
+            return
+        if target is None or key not in {"Backspace", "Delete"}:
+            return
+        after = str(await target.evaluate(READ_VALUE) or "")
+        if after == before and before:
+            await target.evaluate(EDIT_VALUE, key)
 
     async def release_pointer(self):
         page, self.pointer_page = self.pointer_page, None
+        self.pointer_dom = False
         if page and not page.is_closed():
             await page.mouse.up()
 
     async def cookies(self):
         if not self.context:
             raise BrowserLoginError("browser_closed")
-        platform = SCOPES[self.scope]
+        platform = browser_platform(self.scope)
         cookies = [
             cookie
             for cookie in await self.context.cookies()
@@ -215,7 +702,7 @@ class LoginBrowser:
         ]
         names = {cookie["name"].lower() for cookie in cookies if cookie["value"]}
         if platform == "weibo":
-            signed_in = self.scope == "weibo-content" and "ssologinstate" in names
+            signed_in = self.scope in {"weibo", "weibo-content"} and "ssologinstate" in names
             if not signed_in and "sub" in names:
                 from playwright.async_api import Error
 
