@@ -22,6 +22,8 @@ const messages: Record<string, string> = {
   browser_expired: "本次扫码窗口已过期，请关闭后重新打开。",
   browser_closed: "平台页面已关闭，请重新打开扫码窗口。",
   browser_interaction_failed: "平台页面暂时无法操作。请等待页面加载，或重新打开登录页。",
+  text_target_missing: "请先点击平台页面中的验证码输入框，再填写验证码。",
+  text_input_rejected: "验证码没有写入平台输入框，或验证按钮仍不可用。请点击输入框后再试。",
   login_pending: "平台尚未确认登录，请扫码并完成平台要求的验证。",
   session_required: "平台未接受当前会话，请在弹窗内确认登录状态。",
   session_unavailable: "检测到平台登录，但无法读取可用于采集的会话。请重新打开授权窗口后再试。",

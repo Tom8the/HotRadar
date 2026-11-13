@@ -157,6 +157,104 @@ async def test_click_falls_back_to_dom_when_the_page_ignores_trusted_mouse(monke
     ]
 
 
+@pytest.mark.asyncio
+async def test_ignored_keyboard_text_is_written_into_the_last_clicked_field(monkeypatch):
+    class Keyboard:
+        def __init__(self):
+            self.typed = ""
+
+        async def type(self, text):
+            self.typed += text
+
+        async def press(self, key):
+            self.pressed = key
+
+    class Field:
+        def __init__(self):
+            self.value = ""
+            self.focused = False
+
+        def as_element(self):
+            return self
+
+        async def evaluate(self, script, arg=None):
+            if "isConnected" in script:
+                return True
+            if script == platform_browser.READ_VALUE:
+                return self.value
+            if script == platform_browser.FOCUS_FIELD:
+                self.focused = True
+                return None
+            if script == platform_browser.WRITE_VALUE:
+                self.value += arg
+                enabled = None if len(self.value) < 4 else True
+                return {"value": self.value, "verifyEnabled": enabled}
+            if script == platform_browser.VERIFY_BUTTON:
+                return len(self.value) >= 4
+            raise AssertionError(script)
+
+        async def dispose(self):
+            return None
+
+    field = Field()
+    keyboard = Keyboard()
+
+    class Page:
+        def __init__(self):
+            self.keyboard = keyboard
+            self.frames = []
+            self.viewport_size = {
+                "width": platform_browser.WIDTH,
+                "height": platform_browser.HEIGHT,
+            }
+
+        def is_closed(self):
+            return False
+
+        class Mouse:
+            async def click(self, x, y):
+                return None
+
+            async def move(self, x, y):
+                return None
+
+            async def down(self):
+                return None
+
+            async def up(self):
+                return None
+
+        mouse = Mouse()
+
+        async def evaluate_handle(self, script, arg=None):
+            if script == platform_browser.FIND_EDITABLE:
+                return field
+            handle = type("Missing", (), {})()
+            handle.as_element = lambda: None
+
+            async def dispose():
+                return None
+
+            handle.dispose = dispose
+            return handle
+
+    page = Page()
+
+    async def viewport(_self):
+        return page
+
+    monkeypatch.setattr(platform_browser.LoginBrowser, "viewport_page", viewport)
+    browser = platform_browser.LoginBrowser("douyin-creator-hot")
+    with pytest.raises(platform_browser.BrowserLoginError) as missing:
+        await browser.insert_text("1234")
+    assert missing.value.code == "text_target_missing"
+    await browser.pointer("click", 20, 30)
+    await browser.insert_text("1234")
+    assert field.focused and field.value == "1234" and keyboard.typed == "1234"
+    await browser.insert_text("9")
+    assert field.value == "12349"
+
+
 def test_browser_only_loads_platform_and_challenge_origins():
     allowed = platform_browser.allowed_request
     assert allowed("https://creator.douyin.com/login", "douyin", document=True)

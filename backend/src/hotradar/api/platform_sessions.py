@@ -339,9 +339,9 @@ async def browser_input(browser, request):
     if isinstance(action, PointerInput):
         await browser.pointer(action.phase, action.x, action.y)
     elif isinstance(action, KeyInput):
-        await browser.page().keyboard.press(action.key)
+        await browser.press_key(action.key)
     elif isinstance(action, TextInput):
-        await browser.page().keyboard.type(action.text)
+        await browser.insert_text(action.text)
     else:
         await browser.page().mouse.wheel(0, action.delta)
 

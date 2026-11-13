@@ -5,7 +5,7 @@
 1. 在 API 部署目录执行 `uv sync --locked --extra browser-auth` 和 `uv run --locked python scripts/configure-platform-sessions.py`。生成的 `HOTRADAR_SESSION_KEY` 用于加密会话，也可由部署环境注入。API 和 Worker 使用同一个加密密钥和持久会话目录，默认 `data/sessions`，可用 `HOTRADAR_SESSION_DIR` 指定。
 2. Linux API 主机执行 `uv run --locked --extra browser-auth playwright install-deps chromium` 安装系统依赖，再用 API 服务账户执行 `uv run --locked --extra browser-auth playwright install chromium`。API 以可运行 Chromium 沙箱的非 root 用户启动，授权期间相关请求需落在同一个 API 进程。单机使用一个 Uvicorn Worker 即可。Windows 依次尝试已安装的 Edge、Chrome 和 Playwright Chromium，也可通过 `HOTRADAR_BROWSER_CHANNEL` 指定浏览器。
 3. 对外部署时为 Next.js 设置 `HOTRADAR_PUBLIC_ORIGIN=https://实际工作台域名`（无尾斜杠），`HOTRADAR_API_URL` 指向内网或回环 API。通过 HTTPS 反代工作台，API 端口仅对工作台和受信环境开放。可在反向代理上控制工作台访问权限。代理转发 `Origin` 和 `Authorization`，验证请求超时至少留 90 秒，登录请求体和画面应排除在访问日志之外。回环访问可省略 `HOTRADAR_PUBLIC_ORIGIN`。
-4. 重启 API、Worker 和工作台。从“来源管理”或“爆款内容”进入“采集授权”，点击对应来源的“扫码授权”或“重新扫码授权”，弹窗直接打开平台登录页。用对应平台 App 扫码。平台页面上的按钮、链接和身份验证选项可以直接点击。如果平台要求验证码，在弹窗中的输入框直接键入，或按住滑块拖动。微博只保留一次授权：登录后打开同城页并选择无锡，验证通过会同时启用热门内容和无锡同城榜。
+4. 重启 API、Worker 和工作台。从“来源管理”或“爆款内容”进入“采集授权”，点击对应来源的“扫码授权”或“重新扫码授权”，弹窗直接打开平台登录页。用对应平台 App 扫码。平台页面上的按钮、链接和身份验证选项可以直接点击。如果平台要求验证码，先点击平台页面里的输入框，再在下方填写并点「输入到平台页面」，或直接在画面上键入；按住滑块可以拖动。没有点中输入框时，页面会提示先点击输入框。微博只保留一次授权：登录后打开同城页并选择无锡，验证通过会同时启用热门内容和无锡同城榜。
 5. 完成登录后点“已登录，验证并启用”。服务器验证并留存首批真实数据后加密保存会话。更新验证失败时保留此前保存的会话和数据。关闭窗口、验证成功或十分钟到期后释放临时浏览器。
 
 Windows 原有 `*.dpapi` 仍供原 Windows 用户读取。首次迁移到 Linux 时在工作台重新扫码。之后换机可迁移 `*.fernet` 密文和原加密密钥，分别通过私有渠道转移；平台可能要求新服务器重新登录。已有历史仍由 PostgreSQL 保存，迁移历史需单独迁移数据库。
