@@ -63,6 +63,7 @@ ASSET_HOSTS = {
 LOGIN_BUTTONS = {
     "douyin-hot": "登录",
     "douyin-content": "登录",
+    "weibo": "登录/注册",
     "weibo-wuxi": "登录/注册",
     "weibo-content": "登录/注册",
 }
@@ -80,6 +81,91 @@ ENLARGE_WEIBO_QR = """
     image.parentElement.style.overflow = "visible";
 }
 """
+# Douyin's creator document is cross-origin isolated and does not deliver Playwright's
+# trusted mouse events to the page, so clicks on identity verification do nothing.
+# The marker records events that actually land; a miss falls back to DOM activation.
+# Classic script, not a function: Playwright evaluates init scripts as programs.
+TRUSTED_INPUT_OBSERVER = """
+if (window.__hotradarTrustedCount === undefined) window.__hotradarTrustedCount = 0;
+addEventListener("pointerdown", (event) => {
+    if (event.isTrusted) window.__hotradarTrustedCount += 1;
+}, true);
+addEventListener("mousedown", (event) => {
+    if (event.isTrusted) window.__hotradarTrustedCount += 1;
+}, true);
+addEventListener("click", (event) => {
+    if (event.isTrusted) window.__hotradarTrustedCount += 1;
+}, true);
+"""
+HIT_TEST = """
+([x, y]) => {
+    let el = document.elementFromPoint(x, y);
+    while (el && el.shadowRoot) {
+        const next = el.shadowRoot.elementFromPoint(x, y);
+        if (!next || next === el) break;
+        el = next;
+    }
+    return el;
+}
+"""
+IFRAME_ORIGIN = """
+(el) => {
+    if (!el || el.tagName !== "IFRAME") return null;
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+        dx: rect.left + (parseFloat(style.borderLeftWidth) || 0),
+        dy: rect.top + (parseFloat(style.borderTopWidth) || 0),
+    };
+}
+"""
+DOM_POINTER = """
+(el, point) => {
+    const x = point.x;
+    const y = point.y;
+    const phase = point.phase;
+    const base = {
+        bubbles: true, cancelable: true, composed: true, view: window,
+        clientX: x, clientY: y, screenX: x, screenY: y, button: 0,
+    };
+    const pointer = (type, buttons) => el.dispatchEvent(new PointerEvent(type, {
+        ...base, buttons, pointerId: 1, pointerType: "mouse", isPrimary: true,
+        width: 1, height: 1, pressure: buttons ? 0.5 : 0,
+    }));
+    const mouse = (type, buttons) => el.dispatchEvent(new MouseEvent(type, {...base, buttons}));
+    if (phase === "down" || phase === "click") {
+        try { el.focus({preventScroll: true}); } catch (error) { /* not focusable */ }
+        pointer("pointerover", 0);
+        mouse("mouseover", 0);
+        pointer("pointerdown", 1);
+        mouse("mousedown", 1);
+    }
+    if (phase === "move") {
+        pointer("pointermove", 1);
+        mouse("mousemove", 1);
+    }
+    if (phase === "up" || phase === "click") {
+        pointer("pointerup", 0);
+        mouse("mouseup", 0);
+    }
+    if (phase === "click" && typeof el.click === "function") el.click();
+}
+"""
+
+
+def browser_platform(scope: str) -> str:
+    if scope == "weibo":
+        return "weibo"
+    return SCOPES[scope]
+
+
+def trusted_input_landed(before, after) -> bool:
+    if before is None or after is None or len(before) != len(after):
+        return False
+    return any(
+        isinstance(left, (int, float)) and isinstance(right, (int, float)) and right > left
+        for left, right in zip(before, after, strict=True)
+    )
 
 
 class BrowserLoginError(Exception):
@@ -108,11 +194,12 @@ class LoginBrowser:
     context: BrowserContext | None = None
     expiry: asyncio.Task | None = None
     pointer_page: Page | None = None
+    pointer_dom: bool = False
 
     async def open(self, url: str):
         from playwright.async_api import Error, async_playwright
 
-        platform = SCOPES[self.scope]
+        platform = browser_platform(self.scope)
         self.driver = await async_playwright().start()
         configured = os.environ.get("HOTRADAR_BROWSER_CHANNEL")
         channels = ("msedge", "chrome", "chromium") if os.name == "nt" else ("chromium",)
@@ -149,6 +236,7 @@ class LoginBrowser:
 
         await self.context.route("**/*", http_request)
         await self.context.route_web_socket("**/*", socket_request)
+        await self.context.add_init_script(TRUSTED_INPUT_OBSERVER)
         await self.context.new_page()
         await self.open_login(url)
 
@@ -174,40 +262,121 @@ class LoginBrowser:
         from playwright.async_api import TimeoutError
 
         await self.navigate(url)
-        if label := LOGIN_BUTTONS.get(self.scope):
-            with suppress(TimeoutError):
-                await self.page().get_by_text(label, exact=True).first.click(timeout=6000)
+        label = LOGIN_BUTTONS.get(self.scope)
+        if not label:
+            return
+        page = self.page()
+        before = await self._input_marks(page)
+        with suppress(TimeoutError):
+            await page.get_by_text(label, exact=True).first.click(timeout=6000)
+        if before is None or trusted_input_landed(before, await self._input_marks(page)):
+            return
+        try:
+            box = await page.get_by_text(label, exact=True).first.bounding_box(timeout=1000)
+        except Exception:  # noqa: BLE001 -- the login control may already be absent
+            return
+        if not box:
+            return
+        await self._dom_pointer(
+            page,
+            "click",
+            int(box["x"] + box["width"] / 2),
+            int(box["y"] + box["height"] / 2),
+        )
 
     async def frame(self):
         page = await self.viewport_page()
-        if SCOPES[self.scope] == "weibo" and urlsplit(page.url).hostname == "passport.weibo.com":
+        on_weibo_passport = (
+            browser_platform(self.scope) == "weibo"
+            and urlsplit(page.url).hostname == "passport.weibo.com"
+        )
+        if on_weibo_passport:
             await page.evaluate(ENLARGE_WEIBO_QR)
         return await page.screenshot(type="jpeg", quality=82, timeout=3000)
+
+    async def _input_marks(self, page):
+        frames = getattr(page, "frames", None)
+        if not frames and getattr(page, "evaluate", None) is None:
+            return None
+        marks = []
+        for frame in frames or [page]:
+            try:
+                count = await frame.evaluate("() => window.__hotradarTrustedCount || 0")
+            except Exception:  # noqa: BLE001 -- a detached frame has no input marker
+                marks.append(None)
+            else:
+                marks.append(count)
+        return marks
+
+    async def _element_at(self, page, x, y):
+        target = page
+        for _ in range(8):
+            handle = await target.evaluate_handle(HIT_TEST, [x, y])
+            element = handle.as_element()
+            if element is None:
+                await handle.dispose()
+                return None
+            origin = await element.evaluate(IFRAME_ORIGIN)
+            if not origin:
+                return element, x, y
+            frame = await element.content_frame()
+            await element.dispose()
+            if frame is None:
+                return None
+            x -= origin["dx"]
+            y -= origin["dy"]
+            target = frame
+        return None
+
+    async def _dom_pointer(self, page, phase, x, y):
+        found = await self._element_at(page, x, y)
+        if not found:
+            return
+        element, local_x, local_y = found
+        try:
+            await element.evaluate(DOM_POINTER, {"phase": phase, "x": local_x, "y": local_y})
+        finally:
+            await element.dispose()
 
     async def pointer(self, phase: str, x: int, y: int):
         if phase in {"click", "down"}:
             await self.release_pointer()
             page = await self.viewport_page()
+            before = await self._input_marks(page)
             if phase == "click":
                 await page.mouse.click(x, y)
+                if before is not None and not trusted_input_landed(
+                    before, await self._input_marks(page)
+                ):
+                    await self._dom_pointer(page, "click", x, y)
                 return
             await page.mouse.move(x, y)
             await page.mouse.down()
             self.pointer_page = page
+            self.pointer_dom = before is not None and not trusted_input_landed(
+                before, await self._input_marks(page)
+            )
+            if self.pointer_dom:
+                await self._dom_pointer(page, "down", x, y)
         elif self.pointer_page and not self.pointer_page.is_closed():
             await self.pointer_page.mouse.move(x, y)
             if phase == "up":
+                if self.pointer_dom:
+                    await self._dom_pointer(self.pointer_page, "up", x, y)
                 await self.release_pointer()
+            elif self.pointer_dom:
+                await self._dom_pointer(self.pointer_page, "move", x, y)
 
     async def release_pointer(self):
         page, self.pointer_page = self.pointer_page, None
+        self.pointer_dom = False
         if page and not page.is_closed():
             await page.mouse.up()
 
     async def cookies(self):
         if not self.context:
             raise BrowserLoginError("browser_closed")
-        platform = SCOPES[self.scope]
+        platform = browser_platform(self.scope)
         cookies = [
             cookie
             for cookie in await self.context.cookies()
@@ -215,7 +384,7 @@ class LoginBrowser:
         ]
         names = {cookie["name"].lower() for cookie in cookies if cookie["value"]}
         if platform == "weibo":
-            signed_in = self.scope == "weibo-content" and "ssologinstate" in names
+            signed_in = self.scope in {"weibo", "weibo-content"} and "ssologinstate" in names
             if not signed_in and "sub" in names:
                 from playwright.async_api import Error
 

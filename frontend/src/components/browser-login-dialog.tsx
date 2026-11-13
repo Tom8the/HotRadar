@@ -4,7 +4,9 @@ import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, ty
 
 type Lease = { access_key: string; width: number; height: number; has_city_page: boolean };
 type SavedSession = { state: "saved"; saved_at: string };
-type VerifyResult = SavedSession & { status: string; item_count: number };
+type VerifyResult = SavedSession & {
+  status: string; item_count: number; content_item_count?: number; city_item_count?: number;
+};
 type Point = { x: number; y: number };
 type Gesture = {
   id: number; clientX: number; clientY: number;
@@ -67,7 +69,7 @@ const editKeys = new Set([
 
 export default function BrowserLoginDialog({ source, name, note, onClose, onVerified }: {
   source: string; name: string; note: string; onClose: () => void;
-  onVerified: (session: SavedSession, itemCount: number) => void;
+  onVerified: (session: SavedSession, itemCount: number, summary?: string) => void;
 }) {
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -186,7 +188,10 @@ export default function BrowserLoginDialog({ source, name, note, onClose, onVeri
           setFrame("");
           setFrameError("");
           setError("");
-          onVerified({ state: verified.state, saved_at: verified.saved_at }, verified.item_count);
+          const summary = verified.content_item_count != null && verified.city_item_count != null
+            ? `微博授权成功。热门内容留存 ${verified.content_item_count} 条，无锡同城留存 ${verified.city_item_count} 条。两个来源已启用。`
+            : undefined;
+          onVerified({ state: verified.state, saved_at: verified.saved_at }, verified.item_count, summary);
         }
       } else if (!disposed.current) {
         setFrame("");
@@ -200,8 +205,10 @@ export default function BrowserLoginDialog({ source, name, note, onClose, onVeri
 
   function coordinates(event: MouseEvent<HTMLDivElement>) {
     if (!active || !frame || busy) return null;
-    const box = event.currentTarget.getBoundingClientRect();
+    const image = event.currentTarget.querySelector("img");
+    const box = (image ?? event.currentTarget).getBoundingClientRect();
     if (!box.width || !box.height) return null;
+    if (image && (event.clientX < box.left || event.clientY < box.top || event.clientX > box.right || event.clientY > box.bottom)) return null;
     return {
       x: Math.max(0, Math.min(active.width - 1, Math.floor((event.clientX - box.left) * active.width / box.width))),
       y: Math.max(0, Math.min(active.height - 1, Math.floor((event.clientY - box.top) * active.height / box.height))),
@@ -212,7 +219,6 @@ export default function BrowserLoginDialog({ source, name, note, onClose, onVeri
     if (pointer.current || event.button !== 0) return;
     const point = coordinates(event);
     if (!point) return;
-    event.preventDefault();
     event.currentTarget.focus({ preventScroll: true });
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* The pointer may already be inactive. */ }
     handledClick.current = false;
@@ -231,6 +237,7 @@ export default function BrowserLoginDialog({ source, name, note, onClose, onVeri
     if (!gesture.dragging) {
       if (Math.hypot(event.clientX - gesture.clientX, event.clientY - gesture.clientY) < 5) return;
       gesture.dragging = true;
+      event.preventDefault();
       send({ kind: "pointer", phase: "down", ...gesture.start });
     }
     const now = performance.now();
@@ -243,11 +250,12 @@ export default function BrowserLoginDialog({ source, name, note, onClose, onVeri
     const gesture = pointer.current;
     if (!gesture || gesture.id !== event.pointerId) return;
     pointer.current = null;
-    handledClick.current = true;
     if (gesture.dragging) {
+      handledClick.current = true;
       const point = cancelled ? gesture.last : coordinates(event) ?? gesture.last;
       send({ kind: "pointer", phase: "up", ...point });
     } else if (!cancelled) {
+      handledClick.current = true;
       send({ kind: "pointer", phase: "click", ...gesture.start });
     }
   }
@@ -281,13 +289,15 @@ export default function BrowserLoginDialog({ source, name, note, onClose, onVeri
     </header>
     {error && !active && <p className="hr-error-banner" role="alert">{error}</p>}
     {result ? <p className="hr-success-banner" role="status">
-      授权成功。会话已加密保存，采集已启用。本次{result.status === "partial" ? "部分采集成功，" : ""}留存 {result.item_count} 条。
+      {result.content_item_count != null && result.city_item_count != null
+        ? <>授权成功。热门内容留存 {result.content_item_count} 条，无锡同城留存 {result.city_item_count} 条。两个来源已启用。</>
+        : <>授权成功。会话已加密保存，采集已启用。本次{result.status === "partial" ? "部分采集成功，" : ""}留存 {result.item_count} 条。</>}
     </p> : !active ? <div>
       <p>{note}</p>
       {busy ? <p role="status">正在打开平台登录页…</p> :
         <button type="button" className="hr-button hr-button-primary" onClick={() => void open()}>重试打开登录页</button>}
     </div> : <>
-      <p>在下方平台页面扫码。需要验证码时，可点击输入框后键入，或按住滑块拖动。</p>
+      <p>在下方平台页面扫码，可直接点击页面中的按钮、链接和验证方式。需要验证码时，点击输入框后键入，或按住滑块拖动。</p>
       <div className="hr-login-controls">
         <button className="hr-button" disabled={!!busy} onClick={() => void run("login")}>重新打开登录页</button>
         {active.has_city_page && <button className="hr-button" disabled={!!busy} onClick={() => void run("city")}>打开同城页</button>}

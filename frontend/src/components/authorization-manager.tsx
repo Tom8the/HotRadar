@@ -17,8 +17,11 @@ const groups = [
   {
     platform: "微博",
     sources: [
-      { id: "weibo-wuxi", name: "微博同城无锡榜", note: "在移动微博登录，并在同城热搜中选择无锡。" },
-      { id: "weibo-content", name: "微博热门内容", note: "在微博网页版登录并打开热门推荐，同一浏览器会话的移动微博选择无锡。" },
+      {
+        id: "weibo",
+        name: "微博热门与无锡同城",
+        note: "登录微博网页版。打开同城页并选择无锡后验证，同一次登录会同时启用热门内容和无锡同城榜。",
+      },
     ],
   },
 ];
@@ -32,6 +35,18 @@ type AuthorizationStatus = { storage_configured: boolean; browser_available: boo
 const states: Record<Session["state"], string> = {
   saved: "授权会话已保存", missing: "待扫码授权", expired: "会话已过期", unavailable: "会话无法读取",
 };
+
+function weiboSummary(sources: Record<string, Session> | undefined) {
+  const content = sources?.["weibo-content"];
+  const city = sources?.["weibo-wuxi"];
+  const savedAt = [content?.saved_at, city?.saved_at].filter((value): value is string => !!value).sort().at(-1) ?? null;
+  const savedCount = [content, city].filter(item => item?.state === "saved").length;
+  if (savedCount === 2) return { label: states.saved, tone: "is-green", savedAt, complete: true };
+  if (savedCount === 1) return { label: "仅部分来源已授权", tone: "is-orange", savedAt, complete: false };
+  if ([content, city].some(item => item?.state === "unavailable")) return { label: states.unavailable, tone: "is-orange", savedAt: null, complete: false };
+  if ([content, city].some(item => item?.state === "expired")) return { label: states.expired, tone: "is-orange", savedAt, complete: false };
+  return { label: states.missing, tone: "is-orange", savedAt: null, complete: false };
+}
 
 function savedTime(value: string) {
   return new Intl.DateTimeFormat("zh-CN", {
@@ -88,19 +103,26 @@ export default function AuthorizationManager() {
     {groups.map(group => <section className="hr-authorization-group" key={group.platform}>
       <h2>{group.platform}</h2>
       {group.sources.map(source => {
-        const session = status?.sources[source.id];
+        const sources = status?.sources;
+        const session = source.id === "weibo" ? undefined : sources?.[source.id];
+        const combined = source.id === "weibo" && sources ? weiboSummary(sources) : null;
+        const savedAt = combined?.savedAt ?? session?.saved_at;
+        const complete = combined ? combined.complete : session?.state === "saved";
+        const label = combined?.label ?? (session ? (source.id === "douyin-hot" && session.state === "missing" ? "匿名采集" : states[session.state]) : "");
+        const tone = combined?.tone ?? (session?.state === "saved" ? "is-green" : "is-orange");
         return <article className="hr-source-card hr-authorization-card" id={source.id} key={source.id}>
           <div className="hr-section-row"><h3>{source.name}</h3>
-            {session && <span className={"hr-tag " + (session.state === "saved" ? "is-green" : "is-orange")}>{source.id === "douyin-hot" && session.state === "missing" ? "匿名采集" : states[session.state]}</span>}
+            {(session || combined) && <span className={"hr-tag " + tone}>{label}</span>}
           </div>
           <p>{source.note}</p>
-          {session?.saved_at && <small>保存于 {savedTime(session.saved_at)}（北京时间）</small>}
+          {source.id === "weibo" && sources && <small>热门内容：{states[sources["weibo-content"]?.state ?? "missing"]}；无锡同城：{states[sources["weibo-wuxi"]?.state ?? "missing"]}</small>}
+          {savedAt && <small>保存于 {savedTime(savedAt)}（北京时间）</small>}
           <div className="hr-authorization-actions">
             <button className="hr-button hr-button-primary" aria-haspopup="dialog" disabled={!status?.browser_available} onClick={() => {
               setSuccess("");
               setSelected(source);
             }}>
-              <QrCode />{session?.state === "saved" ? "重新扫码授权" : "扫码授权"}
+              <QrCode />{complete ? "重新扫码授权" : "扫码授权"}
             </button>
           </div>
         </article>;
@@ -114,11 +136,15 @@ export default function AuthorizationManager() {
       </article>
     </section>
     {selected && <BrowserLoginDialog source={selected.id} name={selected.name} note={selected.note}
-      onClose={() => setSelected(null)} onVerified={(session, count) => {
-        setStatus(previous => previous && ({
-          ...previous, sources: { ...previous.sources, [selected.id]: session },
-        }));
-        setSuccess(`${selected.name}授权成功，已启用采集。本次留存 ${count} 条。`);
+      onClose={() => setSelected(null)} onVerified={(session, count, summary) => {
+        setStatus(previous => {
+          if (!previous) return previous;
+          const sources = selected.id === "weibo"
+            ? { ...previous.sources, "weibo-content": session, "weibo-wuxi": session }
+            : { ...previous.sources, [selected.id]: session };
+          return { ...previous, sources };
+        });
+        setSuccess(summary ?? `${selected.name}授权成功，已启用采集。本次留存 ${count} 条。`);
         notifyPlatformSessionUpdated();
         void load();
       }} />}

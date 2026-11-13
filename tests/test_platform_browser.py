@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from hotradar import platform_browser
 from hotradar.api import platform_sessions
 from hotradar.api.main import app
+from hotradar.platform_browser import trusted_input_landed
 
 ROOT = "/api/v1/platform-sessions/browser/douyin-content/"
 
@@ -62,6 +63,98 @@ async def test_douyin_browser_reports_unusable_session_separately():
         await platform_sessions.verify_browser_session(
             SimpleNamespace(cookies=invalid_cookies), "douyin-content"
         )
+
+
+def test_trusted_input_marker_detects_a_landed_click():
+    assert trusted_input_landed([0, 1], [0, 2])
+    assert not trusted_input_landed([0, 1], [0, 1])
+    assert not trusted_input_landed(None, [1])
+    assert not trusted_input_landed([1], [1, 2])
+
+
+@pytest.mark.asyncio
+async def test_click_falls_back_to_dom_when_the_page_ignores_trusted_mouse(monkeypatch):
+    events = []
+
+    class Frame:
+        def __init__(self):
+            self.count = 0
+
+        async def evaluate(self, script):
+            assert "TrustedCount" in script
+            return self.count
+
+    class Element:
+        def as_element(self):
+            return self
+
+        async def evaluate(self, script, arg=None):
+            if arg is None:
+                return None
+            events.append(("dom", arg["phase"], arg["x"], arg["y"]))
+
+        async def dispose(self):
+            events.append(("dispose",))
+
+    class Page:
+        def __init__(self):
+            self.frame = Frame()
+            self.frames = [self.frame]
+            self.deliver = False
+            self.viewport_size = {
+                "width": platform_browser.WIDTH,
+                "height": platform_browser.HEIGHT,
+            }
+
+        def is_closed(self):
+            return False
+
+        async def evaluate_handle(self, script, arg):
+            events.append(("hit", tuple(arg)))
+            return Element()
+
+    page = Page()
+
+    class Mouse:
+        async def click(self, x, y):
+            events.append(("mouse", x, y))
+            if page.deliver:
+                page.frame.count += 1
+
+        async def move(self, x, y):
+            events.append(("move", x, y))
+
+        async def down(self):
+            events.append(("down",))
+            if page.deliver:
+                page.frame.count += 1
+
+        async def up(self):
+            events.append(("up",))
+
+    page.mouse = Mouse()
+
+    async def viewport(_self):
+        return page
+
+    monkeypatch.setattr(platform_browser.LoginBrowser, "viewport_page", viewport)
+    browser = platform_browser.LoginBrowser("douyin-creator-hot")
+    await browser.pointer("click", 12, 34)
+    assert ("dom", "click", 12, 34) in events
+    page.deliver = True
+    events.clear()
+    await browser.pointer("click", 8, 9)
+    assert ("mouse", 8, 9) in events and not any(item[0] == "dom" for item in events)
+    page.deliver = False
+    events.clear()
+    await browser.pointer("down", 3, 4)
+    await browser.pointer("move", 30, 4)
+    await browser.pointer("up", 80, 4)
+    assert [item for item in events if item[0] == "dom"] == [
+        ("dom", "down", 3, 4),
+        ("dom", "move", 30, 4),
+        ("dom", "up", 80, 4),
+    ]
 
 
 def test_browser_only_loads_platform_and_challenge_origins():

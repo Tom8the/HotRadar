@@ -46,16 +46,19 @@ LOGIN_PAGES = {
     NATIONAL_BOARD: CREATOR_PAGE,
     "douyin-wuxi": CREATOR_PAGE,
     "douyin-content": "https://www.douyin.com/jingxuan",
+    "weibo": "https://weibo.com/",
     "weibo-wuxi": WEIBO_CITY_PAGE,
     "weibo-content": "https://weibo.com/",
 }
 BROWSER_PAGES = {
     **LOGIN_PAGES,
+    "weibo": "https://weibo.com/login.php",
     "weibo-wuxi": "https://weibo.com/login.php",
     "weibo-content": "https://weibo.com/login.php",
 }
 CITY_PAGES = {
     "douyin-content": CREATOR_PAGE,
+    "weibo": WEIBO_CITY_PAGE,
     "weibo-content": WEIBO_CITY_PAGE,
     "weibo-wuxi": WEIBO_CITY_PAGE,
 }
@@ -64,6 +67,10 @@ CONTENT = {
     "douyin-content": (collect_douyin, fetch_douyin),
     "weibo-content": (collect_weibo, fetch_weibo),
 }
+
+
+def browser_scope(scope):
+    return scope == "weibo" or scope in SCOPES
 
 
 def storage_configured():
@@ -170,10 +177,7 @@ async def verify_session(scope, cookies):
             activate=True,
             max_attempts=1,
         )
-    if result["status"] in {"busy", "locked"}:
-        raise HTTPException(409, "collection_busy")
-    if result["status"] not in {"success", "partial"}:
-        raise HTTPException(422, result.get("error_code") or "verification_incomplete")
+    accepted_verification(result)
     return JSONResponse(
         {
             "scope": scope,
@@ -185,14 +189,90 @@ async def verify_session(scope, cookies):
     )
 
 
-async def verify_browser_session(browser, scope):
-    async def credentials():
-        try:
-            return validate_cookies(SCOPES[scope], await browser.cookies())
-        except ValueError:
-            raise HTTPException(422, "session_unavailable") from None
+def accepted_verification(result):
+    if result["status"] in {"busy", "locked"}:
+        raise HTTPException(409, "collection_busy")
+    if result["status"] not in {"success", "partial"}:
+        raise HTTPException(422, result.get("error_code") or "verification_incomplete")
+    return result
 
-    cookies = await credentials()
+
+async def verify_weibo_login(cookies):
+    """One Weibo web session covers hot content and the Wuxi city board."""
+
+    jar = cookie_jar(cookies)
+    if not jar.jar:
+        raise HTTPException(400, "expired_session")
+    try:
+        content_batch = await fetch_weibo(verify=True, cookies=jar)
+    except CollectionError as exc:
+        raise SessionVerificationError(exc.code) from None
+    try:
+        city_batch = await WeiboWuxiCollector(timeout=get_settings().timeout, cookies=jar).collect()
+    except CollectionError as exc:
+        raise SessionVerificationError(exc.code) from None
+    if not city_batch.items:
+        raise HTTPException(422, "verification_incomplete")
+
+    def store(scope):
+        try:
+            save_portable(scope, cookies)
+        except (OSError, RuntimeError):
+            raise CollectionError("session_storage_failed", "Could not save session.") from None
+
+    async def store_content(*, verify):
+        store("weibo-content")
+        return content_batch
+
+    content_result = accepted_verification(
+        await collect_weibo(
+            "browser-auth:" + uuid4().hex,
+            verify=True,
+            activate=True,
+            fetcher=store_content,
+        )
+    )
+    city_result = accepted_verification(
+        await collect_board(
+            "weibo-wuxi",
+            "browser-auth:" + uuid4().hex,
+            collector=VerifiedBoardImport(city_batch, lambda: store("weibo-wuxi")),
+            activate=True,
+            max_attempts=1,
+        )
+    )
+    content_status, city_status = session_status("weibo-content"), session_status("weibo-wuxi")
+    if content_status["state"] != "saved" or city_status["state"] != "saved":
+        raise HTTPException(422, "session_storage_failed")
+    content_count = content_result.get("item_count") or 0
+    city_count = city_result.get("items") or 0
+    partial = "partial" in {content_result["status"], city_result["status"]}
+    return JSONResponse(
+        {
+            "scope": "weibo",
+            "item_count": content_count + city_count,
+            "content_item_count": content_count,
+            "city_item_count": city_count,
+            "status": "partial" if partial else "success",
+            "state": "saved",
+            "saved_at": content_status["saved_at"],
+        },
+        headers=NO_STORE,
+    )
+
+
+async def browser_cookies(browser, scope):
+    platform = "weibo" if scope == "weibo" else SCOPES[scope]
+    try:
+        return validate_cookies(platform, await browser.cookies())
+    except ValueError:
+        raise HTTPException(422, "session_unavailable") from None
+
+
+async def verify_browser_session(browser, scope):
+    cookies = await browser_cookies(browser, scope)
+    if scope == "weibo":
+        return await verify_weibo_login(cookies)
     try:
         return await verify_session(scope, cookies)
     except SessionVerificationError as exc:
@@ -200,7 +280,7 @@ async def verify_browser_session(browser, scope):
         if SCOPES[scope] != "douyin" or exc.detail not in retry_codes:
             raise
     await browser.refresh_session(BROWSER_PAGES[scope])
-    refreshed = await credentials()
+    refreshed = await browser_cookies(browser, scope)
     try:
         return await verify_session(scope, refreshed)
     except SessionVerificationError as exc:
@@ -272,7 +352,7 @@ async def browser_action(
     action: Literal["open", "frame", "input", "city", "login", "verify", "close"],
     request: Request,
 ):
-    if scope not in SCOPES:
+    if not browser_scope(scope):
         raise HTTPException(404, "unknown_scope")
     # Browser requests go through the same-origin workbench proxy.
     if "origin" in request.headers:
