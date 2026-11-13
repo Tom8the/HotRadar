@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowLeft, KeyRound, QrCode, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { notifyPlatformSessionUpdated, watchPlatformSessionUpdates } from "../lib/platform-session-updates";
 import BrowserLoginDialog from "./browser-login-dialog";
 
 const groups = [
@@ -9,7 +10,7 @@ const groups = [
     platform: "抖音",
     sources: [
       { id: "douyin-hot", name: "抖音总榜", note: "默认匿名采集。匿名请求失败时，可使用已验证的登录会话。" },
-      { id: "douyin-wuxi", name: "无锡创作热点", note: "在抖音创作者中心登录，并在同城榜中选择无锡。" },
+      { id: "douyin-creator-hot", name: "创作参考 · 全国创作热点", note: "登录抖音创作者中心，验证全国创作热点榜。" },
       { id: "douyin-content", name: "抖音精选内容", note: "在抖音精选登录并打开全部分类，同一浏览器会话的创作者中心选择无锡。" },
     ],
   },
@@ -26,10 +27,10 @@ type Session = {
   state: "saved" | "missing" | "expired" | "unavailable";
   saved_at: string | null;
 };
-type AuthorizationStatus = { import_available: boolean; browser_available: boolean; sources: Record<string, Session> };
+type AuthorizationStatus = { storage_configured: boolean; browser_available: boolean; sources: Record<string, Session> };
 
 const states: Record<Session["state"], string> = {
-  saved: "已保存会话", missing: "待扫码授权", expired: "会话已过期", unavailable: "会话无法读取",
+  saved: "授权会话已保存", missing: "待扫码授权", expired: "会话已过期", unavailable: "会话无法读取",
 };
 
 function savedTime(value: string) {
@@ -43,26 +44,30 @@ export default function AuthorizationManager() {
   const [loading, setLoading] = useState(true);
   const [statusError, setStatusError] = useState("");
   const [selected, setSelected] = useState<{ id: string; name: string; note: string } | null>(null);
+  const [success, setSuccess] = useState("");
+  const readSequence = useRef(0);
   const load = useCallback(async (signal?: AbortSignal) => {
+    const sequence = ++readSequence.current;
     setLoading(true);
     try {
       const response = await fetch("/api/platform-sessions", { cache: "no-store", signal });
       if (!response.ok) throw new Error("Unavailable");
       const data = await response.json();
-      if (!signal?.aborted) {
+      if (!signal?.aborted && sequence === readSequence.current) {
         setStatus(data);
         setStatusError("");
       }
     } catch {
-      if (!signal?.aborted) setStatusError("会话状态读取失败，请检查 HotRadar 服务后重试。");
+      if (!signal?.aborted && sequence === readSequence.current) setStatusError("会话状态读取失败，请检查 HotRadar 服务后重试。");
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted && sequence === readSequence.current) setLoading(false);
     }
   }, []);
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
-    return () => controller.abort();
+    const unsubscribe = watchPlatformSessionUpdates(() => void load(controller.signal));
+    return () => { unsubscribe(); controller.abort(); };
   }, [load]);
 
   return <main id="hotradar-app" className="hr-authorization" data-theme="light">
@@ -76,21 +81,25 @@ export default function AuthorizationManager() {
       </div>
     </section>
     {statusError && <div className="hr-error-banner" role="alert">{statusError}</div>}
+    {success && <div className="hr-success-banner" role="status">{success}</div>}
     {status && !status.browser_available && <p className="hr-authorization-notice" role="status">
-      {status.import_available ? "服务器尚未安装网页扫码组件。" : "服务器尚未配置会话加密密钥和管理令牌。"}
+      {status.storage_configured ? "服务器尚未安装网页扫码组件。" : "服务器尚未配置会话加密密钥。"}
     </p>}
     {groups.map(group => <section className="hr-authorization-group" key={group.platform}>
       <h2>{group.platform}</h2>
       {group.sources.map(source => {
         const session = status?.sources[source.id];
-        return <article className="hr-source-card hr-authorization-card" key={source.id}>
+        return <article className="hr-source-card hr-authorization-card" id={source.id} key={source.id}>
           <div className="hr-section-row"><h3>{source.name}</h3>
             {session && <span className={"hr-tag " + (session.state === "saved" ? "is-green" : "is-orange")}>{source.id === "douyin-hot" && session.state === "missing" ? "匿名采集" : states[session.state]}</span>}
           </div>
           <p>{source.note}</p>
           {session?.saved_at && <small>保存于 {savedTime(session.saved_at)}（北京时间）</small>}
           <div className="hr-authorization-actions">
-            <button className="hr-button hr-button-primary" aria-haspopup="dialog" disabled={!status?.browser_available} onClick={() => setSelected(source)}>
+            <button className="hr-button hr-button-primary" aria-haspopup="dialog" disabled={!status?.browser_available} onClick={() => {
+              setSuccess("");
+              setSelected(source);
+            }}>
               <QrCode />{session?.state === "saved" ? "重新扫码授权" : "扫码授权"}
             </button>
           </div>
@@ -105,6 +114,13 @@ export default function AuthorizationManager() {
       </article>
     </section>
     {selected && <BrowserLoginDialog source={selected.id} name={selected.name} note={selected.note}
-      onClose={() => setSelected(null)} onVerified={() => void load()} />}
+      onClose={() => setSelected(null)} onVerified={(session, count) => {
+        setStatus(previous => previous && ({
+          ...previous, sources: { ...previous.sources, [selected.id]: session },
+        }));
+        setSuccess(`${selected.name}授权成功，已启用采集。本次留存 ${count} 条。`);
+        notifyPlatformSessionUpdated();
+        void load();
+      }} />}
   </main>;
 }

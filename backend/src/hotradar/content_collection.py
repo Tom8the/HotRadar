@@ -307,9 +307,9 @@ async def run_source_due(source_id):
     return await collector(f"content-scheduled:{source_id}:{bucket}")
 
 
-def source_status(session):
+def source_status(session, sources=("douyin", "weibo")):
     result = []
-    for source in ("douyin", "weibo"):
+    for source in sources:
         config = session.get(ContentSourceSetting, source)
         run = session.scalar(
             select(ContentCollectionRun)

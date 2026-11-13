@@ -25,6 +25,12 @@ export type ManagedSource = Omit<Board, "snapshot"> & {
   recent_runs: { id: string; created_at: string; status: string; attempt_count: number; error_code: string | null; item_count: number | null }[];
   changes: { id: string; changed_at: string; before: { enabled: boolean; interval_seconds: number }; after: { enabled: boolean; interval_seconds: number } }[];
 };
+export type ContentSource = {
+  source_id: "douyin" | "weibo"; enabled: boolean; interval_seconds: number;
+  verified_at: string | null; session_saved_locally: boolean; automatic_supported: boolean;
+  last_run: { id: string; status: string; started_at: string; finished_at: string | null;
+    item_count: number | null; rejected_count: number | null; error_code: string | null } | null;
+};
 export type DashboardData = {
   selected_date: string; timezone: string; read_at: string; first_observed_at: string | null;
   stage: string; coverage_note: string; boards: Board[];

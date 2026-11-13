@@ -11,7 +11,7 @@ from time import monotonic
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-from hotradar.session_store import SCOPES, allowed_domain
+from hotradar.session_store import SCOPES, allowed_domain, validate_cookies
 
 if TYPE_CHECKING:
     from playwright.async_api import (
@@ -68,6 +68,18 @@ LOGIN_BUTTONS = {
 }
 DOUYIN_LOGIN_COOKIES = {"sessionid", "sessionid_ss"}
 WEIBO_MOBILE_CONFIG = "https://m.weibo.cn/api/config"
+ENLARGE_WEIBO_QR = """
+() => {
+    const image = document.querySelector('img[src^="https://v2.qr.weibo.cn/"]');
+    if (!image || image.style.transform === "scale(2)") return;
+    image.style.transform = "scale(2)";
+    image.style.position = "relative";
+    image.style.zIndex = "1";
+    image.style.imageRendering = "pixelated";
+    image.parentElement.style.marginBlock = "55px";
+    image.parentElement.style.overflow = "visible";
+}
+"""
 
 
 class BrowserLoginError(Exception):
@@ -168,12 +180,17 @@ class LoginBrowser:
 
     async def frame(self):
         page = await self.viewport_page()
+        if SCOPES[self.scope] == "weibo" and urlsplit(page.url).hostname == "passport.weibo.com":
+            await page.evaluate(ENLARGE_WEIBO_QR)
         return await page.screenshot(type="jpeg", quality=82, timeout=3000)
 
     async def pointer(self, phase: str, x: int, y: int):
-        if phase == "down":
+        if phase in {"click", "down"}:
             await self.release_pointer()
             page = await self.viewport_page()
+            if phase == "click":
+                await page.mouse.click(x, y)
+                return
             await page.mouse.move(x, y)
             await page.mouse.down()
             self.pointer_page = page
@@ -211,10 +228,33 @@ class LoginBrowser:
                         data = payload.get("data") if isinstance(payload, dict) else None
                         signed_in = isinstance(data, dict) and data.get("login") is True
         else:
+            # Other platform cookies may be partitioned or unsuitable for the worker's HTTP jar.
+            # Keep eligible cookies and require a usable sign-in cookie from this same context.
+            portable = []
+            for cookie in cookies:
+                with suppress(ValueError):
+                    portable.extend(validate_cookies(platform, [cookie]))
+            cookies = portable
             signed_in = bool(names & DOUYIN_LOGIN_COOKIES)
+            if signed_in and not any(
+                cookie["name"].lower() in DOUYIN_LOGIN_COOKIES and cookie["value"]
+                for cookie in cookies
+            ):
+                raise BrowserLoginError("session_unavailable")
         if not signed_in:
             raise BrowserLoginError("login_pending")
         return cookies
+
+    async def refresh_session(self, url: str):
+        from playwright.async_api import Error, TimeoutError
+
+        page = self.page()
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=12000)
+        except Error:
+            raise BrowserLoginError("source_page_unavailable") from None
+        with suppress(TimeoutError):
+            await page.wait_for_load_state("load", timeout=4000)
 
     async def close(self):
         if self.browser:

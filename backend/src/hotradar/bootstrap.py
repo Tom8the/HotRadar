@@ -1,5 +1,6 @@
 from sqlalchemy import select
 
+from hotradar.collectors.douyin_city import NATIONAL_BOARD, NATIONAL_VERSION
 from hotradar.config import get_settings
 from hotradar.db.models import Board, Source
 from hotradar.db.session import session_factory
@@ -34,6 +35,16 @@ SEEDS = [
         "search_heat",
         "热搜指数",
         "weibo-hot-v1",
+    ),
+    (
+        "douyin",
+        "抖音",
+        "https://www.douyin.com/",
+        NATIONAL_BOARD,
+        "创作参考 · 全国创作热点",
+        "topic_heat",
+        "创作热点热度",
+        NATIONAL_VERSION,
     ),
     (
         "douyin",
@@ -81,7 +92,8 @@ def seed_sources():
                         provider="platform-web",
                         home_url=url,
                         access_method="anonymous-web-page"
-                        if source_id == "baidu" else "anonymous-web-endpoint",
+                        if source_id == "baidu"
+                        else "anonymous-web-endpoint",
                     )
                 )
         session.flush()

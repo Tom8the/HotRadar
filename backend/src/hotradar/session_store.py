@@ -22,12 +22,12 @@ ROOT = PROJECT_ROOT / "data" / "sessions"
 PLATFORMS = {"weibo": ("weibo.com", "weibo.cn"), "douyin": ("douyin.com",)}
 SCOPES = {
     "douyin-hot": "douyin",
+    "douyin-creator-hot": "douyin",
     "douyin-wuxi": "douyin",
     "douyin-content": "douyin",
     "weibo-wuxi": "weibo",
     "weibo-content": "weibo",
 }
-MAX_SESSION_BYTES = 256 * 1024
 
 
 class Blob(ctypes.Structure):

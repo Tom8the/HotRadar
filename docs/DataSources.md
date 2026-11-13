@@ -1,5 +1,7 @@
 # HotRadar 首期数据接入方案
 
+「创作参考」使用抖音创作者中心全国创作热点榜 `douyin-creator-hot`。官方榜单请求使用 `hot_search_type=1`，省略城市参数。榜位和热度分别来自 `rank` 和 `hot_score`，榜单更新时间与采样时间分开保存。全国榜历史从首次真实采集开始。
+
 2026-10-29更新：已按用户要求接入百度实时热搜。正式适配器读取 `https://top.baidu.com/board?tab=realtime&platform=pc` 网页的 `s-data` 数据，仅接受 `realtime` 热搜卡片；首次生产采样51条含置顶1条。`word`为源内标识与标题，普通 `index + 1` 为榜位，置顶保留标记且无普通榜位，`hotScore`映射为百度提供的热搜指数原值，缺失为null。`updateTime`为榜单更新时间，不是各话题发布时间；采样时间另存。原文保留官方搜索链接，原始业务响应和解析版本 `baidu-hot-v1` 可追溯。无需Cookie；默认15分钟，可独立启停并保留历史。进入热榜、事件和趋势，不进入具体内容池。详见验收（本地留档 `BaiduBoardAcceptance.md`）。本条取代下方百度暂缓的历史状态。
 
 2026-10-19 16:13更新：原生无锡榜现已通过官方 `so-landing.douyin.com/aweme/v1/hot/search/list/` 接入，board_type=1、board_sub_type=320200、aid=581610、version_code=32.3.0。正式批次50条，独立 `douyin-wuxi-app`，已启用15分钟采集；校验城市、榜单标签和逐行城市榜参数，并与全国结果对照。无需Cookie。指标为hot_value同城热度，非播放量；榜单active_time和本机采样时间分别保存。详见验收（本地留档 `DouyinAppWuxiAcceptance.md`）。本条取代下一段关于App榜待验证的旧状态，原创作者中心来源仍独立保留。

@@ -4,10 +4,12 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 from hotradar import content_collection, session_store
+from hotradar.api import main, source_management
 from hotradar.collectors.types import CollectionError
 from hotradar.db.models import ContentCollectionRun, ContentObservation, ContentSourceSetting
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 NOW = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)
 
@@ -159,3 +161,44 @@ def test_bad_batch_rolls_back_all_content_and_never_activates(event_db, monkeypa
     with event_db() as session:
         assert session.scalar(select(func.count()).select_from(ContentObservation)) == 0
         assert session.scalar(select(func.count()).select_from(ContentCollectionRun)) == 1
+
+
+def test_douyin_content_controls_are_independent_and_require_a_verified_session(
+    event_db, monkeypatch
+):
+    monkeypatch.setattr(source_management, "session_factory", lambda: event_db)
+    monkeypatch.setattr(content_collection, "session_factory", lambda: event_db)
+    monkeypatch.setattr(content_collection, "session_status", lambda _scope: {"state": "saved"})
+    with event_db.begin() as session:
+        session.add_all([ContentSourceSetting(source_id=source) for source in ("douyin", "weibo")])
+
+    path = "/api/v1/content-sources/douyin/settings"
+    with TestClient(main.app) as client:
+        assert client.patch(path, json={"enabled": True}).json()["detail"] == "session_required"
+        with event_db.begin() as session:
+            session.get(ContentSourceSetting, "douyin").verified_at = NOW
+            session.execute(text("SELECT pg_advisory_xact_lock(hashtext('content-worker:douyin'))"))
+            assert client.patch(path, json={"enabled": True}).json()["detail"] == "collection_busy"
+        assert (
+            client.patch(
+                path, json={"enabled": True}, headers={"Origin": "https://example.com"}
+            ).status_code
+            == 403
+        )
+        resumed = client.patch(path, json={"enabled": True, "interval_seconds": 900})
+        assert resumed.status_code == 200
+        assert resumed.json() == {
+            "source_id": "douyin",
+            "enabled": True,
+            "interval_seconds": 900,
+            "changed": True,
+        }
+        sources = client.get("/api/v1/source-management").json()["content_sources"]
+        assert len(sources) == 1 and sources[0]["enabled"]
+        assert client.patch(path, json={"enabled": False}).json()["enabled"] is False
+        assert client.patch(path, json={"enabled": False}).json()["changed"] is False
+    assert asyncio.run(content_collection.run_source_due("douyin")) is None
+    with event_db() as session:
+        config = session.get(ContentSourceSetting, "douyin")
+        assert [entry["action"] for entry in config.verification["controls"]] == ["resume", "pause"]
+        assert session.get(ContentSourceSetting, "weibo").interval_seconds == 1800

@@ -7,7 +7,11 @@ from sqlalchemy import select, text
 
 from hotradar.collectors.baidu import BaiduCollector
 from hotradar.collectors.douyin_app_city import DouyinAppWuxiCollector
-from hotradar.collectors.douyin_city import DouyinWuxiCollector
+from hotradar.collectors.douyin_city import (
+    NATIONAL_BOARD,
+    DouyinCreatorNationalCollector,
+    DouyinWuxiCollector,
+)
 from hotradar.collectors.platforms import PlatformCollector
 from hotradar.collectors.types import CollectionBatch, CollectionError
 from hotradar.collectors.weibo_city import WeiboWuxiCollector
@@ -162,6 +166,8 @@ async def collect_board(
                 if board_id == "douyin-wuxi-app"
                 else DouyinWuxiCollector(timeout=get_settings().timeout)
                 if board_id == "douyin-wuxi"
+                else DouyinCreatorNationalCollector(timeout=get_settings().timeout)
+                if board_id == NATIONAL_BOARD
                 else WeiboWuxiCollector(timeout=get_settings().timeout)
                 if board_id == "weibo-wuxi"
                 else PlatformCollector(source_id, timeout=get_settings().timeout)

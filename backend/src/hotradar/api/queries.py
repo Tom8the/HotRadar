@@ -160,7 +160,7 @@ def dashboard(session, day: date):
                     "douyin-search-landing"
                     if board.id == "douyin-wuxi-app"
                     else "douyin-creator"
-                    if board.id == "douyin-wuxi"
+                    if board.id in {"douyin-wuxi", "douyin-creator-hot"}
                     else "weibo-mobile"
                     if board.id == "weibo-wuxi"
                     else source.provider

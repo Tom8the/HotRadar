@@ -30,9 +30,10 @@ export type EventDetail = {
     can_restore: boolean }[];
 };
 
-export function filterEvents(events: RadarEvent[], query: string, scope: string, tag: string) {
+export function filterEvents(events: RadarEvent[], query: string, scope: string, tag: string, source = "all") {
   const needle = query.trim().toLocaleLowerCase();
   return events.filter(e => (!needle || [e.title, ...e.evidence.map(s => s.title)].some(t => t.toLocaleLowerCase().includes(needle))) &&
     (scope !== "cross" || e.platforms.length > 1) && (scope !== "manual" || e.manual_locked) &&
-    (scope !== "followed" || e.followed) && (!tag || e.tags.includes(tag)));
+    (scope !== "followed" || e.followed) && (!tag || e.tags.includes(tag)) &&
+    (source === "all" || e.platforms.includes(source)));
 }

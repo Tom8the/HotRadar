@@ -3,7 +3,7 @@ import test from "node:test";
 import { filterEvents, type RadarEvent } from "../src/lib/events.ts";
 
 const rows = [
-  { id: "a", title: "大桥将开通", platforms: ["douyin", "weibo"], manual_locked: false,
+  { id: "a", title: "大桥将开通", platforms: ["douyin", "weibo", "baidu"], manual_locked: false,
     followed: true, tags: ["交通"], evidence: [{ title: "新鸭绿江大桥" }] },
   { id: "b", title: "学校新闻", platforms: ["weibo"], manual_locked: true,
     followed: false, tags: ["娱乐"], evidence: [{ title: "金晨自曝学校倒闭" }] },
@@ -26,4 +26,10 @@ test("标签和搜索、关注条件取交集，不改写事件对象", () => {
   assert.deepEqual(filterEvents(rows, "大桥", "followed", "交通").map(e => e.id), ["a"]);
   assert.equal(filterEvents(rows, "学校", "followed", "娱乐").length, 0);
   assert.equal(JSON.stringify(rows), before);
+});
+
+test("百度筛选保留包含百度证据的跨平台事件及完整来源关系", () => {
+  const matches = filterEvents(rows, "大桥", "cross", "交通", "baidu");
+  assert.deepEqual(matches, [rows[0]]);
+  assert.equal(filterEvents(rows, "", "manual", "", "baidu").length, 0);
 });

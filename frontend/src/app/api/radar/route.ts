@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const snapshot = request.nextUrl.searchParams.get("snapshot");
   const date = request.nextUrl.searchParams.get("date");
   const view = request.nextUrl.searchParams.get("view") === "1";
-  if (board && !["weibo-hot", "douyin-hot", "douyin-wuxi", "douyin-wuxi-app", "weibo-wuxi", "baidu-hot"].includes(board)) {
+  if (board && !["weibo-hot", "douyin-hot", "douyin-creator-hot", "douyin-wuxi", "douyin-wuxi-app", "weibo-wuxi", "baidu-hot"].includes(board)) {
     return NextResponse.json({ error: "来源不存在" }, { status: 404 });
   }
   if (snapshot && (!board || !/^[0-9a-f-]{36}$/.test(snapshot))) {

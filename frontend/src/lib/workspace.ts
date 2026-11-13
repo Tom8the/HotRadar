@@ -7,7 +7,7 @@ export type Preferences = {
   version: 2; favorites: string[]; dark: boolean; order: string[]; groups: Group[];
   activeGroup: string; source: string; category: string; query: string; include: string; exclude: string;
   hideAds: boolean; risingOnly: boolean; autoRefresh: boolean;
-  douyinBoard: "douyin-hot" | "douyin-wuxi" | "douyin-wuxi-app";
+  douyinBoard: "douyin-hot" | "douyin-creator-hot" | "douyin-wuxi-app";
   weiboBoard: "weibo-hot" | "weibo-wuxi";
 };
 export const defaults: Preferences = {
@@ -38,7 +38,8 @@ export function normalizePreferences(value: unknown): Preferences {
     category: CATEGORIES.includes(p.category as string) ? p.category as string : "全部分类",
     query: text(p.query, 300), include: text(p.include, 300), exclude: text(p.exclude, 300),
     hideAds: p.hideAds === true, risingOnly: p.risingOnly === true, autoRefresh: p.autoRefresh !== false,
-    douyinBoard: p.douyinBoard === "douyin-wuxi-app" ? "douyin-wuxi-app" : p.douyinBoard === "douyin-wuxi" ? "douyin-wuxi" : "douyin-hot",
+    douyinBoard: p.douyinBoard === "douyin-wuxi-app" ? "douyin-wuxi-app" :
+      p.douyinBoard === "douyin-wuxi" || p.douyinBoard === "douyin-creator-hot" ? "douyin-creator-hot" : "douyin-hot",
     weiboBoard: p.weiboBoard === "weibo-wuxi" ? "weibo-wuxi" : "weibo-hot",
   };
 }
@@ -87,8 +88,9 @@ export function selectedPlatformBoard(card: Board, boards: Board[], p: Preferenc
   const id = card.id === "weibo-hot" ? p.weiboBoard : card.id === "douyin-hot" ? p.douyinBoard : card.id;
   if (id === card.id) return card;
   return boards.find(b => b.id === id) || {
-    ...card, id, name: card.source_id === "weibo" ? "无锡榜 · 同城热搜" : id === "douyin-wuxi-app" ? "无锡榜 · 抖音原生城市榜" : "无锡创作热点 · 创作者中心",
-    metric_name: "city_heat", metric_label: id === "douyin-wuxi" ? "同城话题热度" : "同城热度",
+    ...card, id, name: card.source_id === "weibo" ? "无锡榜 · 同城热搜" : id === "douyin-wuxi-app" ? "无锡榜 · 抖音原生城市榜" : "创作参考 · 全国创作热点",
+    metric_name: id === "douyin-creator-hot" ? "topic_heat" : "city_heat",
+    metric_label: id === "douyin-creator-hot" ? "创作热点热度" : "同城热度",
     snapshot: null, latest_run: null, state: "pending", last_success_at: null, enabled: false,
   };
 }

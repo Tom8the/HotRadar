@@ -29,6 +29,7 @@ export default function EventManager({ date, refreshKey, following = false, wall
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState(following ? "followed" : "all");
+  const [source, setSource] = useState("all");
   const [tag, setTag] = useState("");
   const [limit, setLimit] = useState(20);
   const [detail, setDetail] = useState<EventDetail | null>(null);
@@ -59,7 +60,7 @@ export default function EventManager({ date, refreshKey, following = false, wall
   }, [date]);
   useEffect(() => { setData(null); setOpened(""); setDetail(null); void refresh(); return () => { ++read.current; ++detailRead.current; }; }, [refresh]);
   useEffect(() => { if (refreshKey) void refresh(); }, [refreshKey, refresh]);
-  useEffect(() => { setLimit(20); }, [query, scope, tag, date]);
+  useEffect(() => { setLimit(20); }, [query, scope, tag, source, date]);
   useEffect(() => { onModalChange(!!opened); return () => onModalChange(false); }, [opened, onModalChange]);
   useEffect(() => {
     if (opened) drawer.current?.querySelector<HTMLButtonElement>('[aria-label="关闭事件详情"]')?.focus();
@@ -94,7 +95,7 @@ export default function EventManager({ date, refreshKey, following = false, wall
     } catch (e) { setDetailError(e instanceof Error ? e.message : "修正保存失败"); }
     finally { setBusy(false); }
   }
-  const visible = filterEvents(data?.events || [], query, following ? "followed" : scope, tag);
+  const visible = filterEvents(data?.events || [], query, following ? "followed" : scope, tag, source);
   const allTags = [...new Set(data?.events.flatMap(e => e.tags) || [])];
   const mergeTarget = data?.events.find(e => e.id === mergeId);
   const mergeOptions = (data?.events || []).filter(e => e.id !== detail?.event.id &&
@@ -115,6 +116,7 @@ export default function EventManager({ date, refreshKey, following = false, wall
       {notice && <div className="hr-success-banner" role="status">{notice}</div>}
       <div className="hr-event-filters"><label className="hr-search"><Search /><input aria-label="搜索事件与来源标题" type="search" value={query} maxLength={300} placeholder="搜索事件或来源标题" onChange={e => setQuery(e.target.value)} /></label>
         {!following && <select aria-label="事件范围" value={scope} onChange={e => setScope(e.target.value)}><option value="all">全部事件</option><option value="cross">跨平台事件</option><option value="manual">人工修正事件</option><option value="followed">已关注事件</option></select>}
+        <select aria-label="事件平台筛选" value={source} onChange={e => setSource(e.target.value)}><option value="all">全部平台</option><option value="douyin">抖音</option><option value="weibo">微博</option><option value="baidu">百度</option></select>
         <select aria-label="事件标签筛选" value={tag} onChange={e => setTag(e.target.value)}><option value="">全部标签</option>{allTags.map(t => <option key={t}>{t}</option>)}</select><small>匹配 {visible.length} 条</small></div>
       <div className="hr-event-grid">{visible.slice(0, limit).map(e => <article className="hr-event-card" key={e.id}>
         <div className="hr-event-card-top"><span className={"hr-tag " + (e.platforms.length > 1 ? "is-green" : "")}>{e.platforms.length > 1 ? "跨平台 · " + e.platforms.length + "个平台" : "单平台观察"}</span><span className="hr-event-status">{e.manual_locked ? "人工关系保护" : e.total_members > 1 ? "自动关联 · 待核对" : "来源条目"}{e.followed && <Star aria-label="已关注" />}</span></div>

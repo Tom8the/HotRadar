@@ -14,6 +14,7 @@ from hotradar.api.platform_sessions import router as sessions_router
 from hotradar.api.queries import dashboard, day_bounds, serialize_snapshot
 from hotradar.api.source_management import router as management_router
 from hotradar.api.trends import router as trends_router
+from hotradar.collectors.douyin_city import NATIONAL_BOARD
 from hotradar.db.models import Board, BoardSnapshot
 from hotradar.db.session import session_factory
 from hotradar.platform_browser import browser_lifespan
@@ -55,6 +56,7 @@ def get_boards(
                 if board_id not in {
                     "baidu-hot",
                     "douyin-hot",
+                    NATIONAL_BOARD,
                     "douyin-wuxi",
                     "douyin-wuxi-app",
                     "weibo-wuxi",

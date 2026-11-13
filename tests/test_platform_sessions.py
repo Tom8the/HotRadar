@@ -11,9 +11,8 @@ from hotradar.api.main import app
 from hotradar.collectors.platforms import PlatformCollector
 from hotradar.collectors.types import CollectionError
 from hotradar.db.models import Board
+from hotradar.platform_browser import LoginBrowser
 from test_persistence import sample
-
-TOKEN = "fixture-operator-token-for-hotradar"
 
 
 def credential(value="fixture-login"):
@@ -24,7 +23,6 @@ def credential(value="fixture-login"):
 def portable(tmp_path, monkeypatch):
     monkeypatch.setenv("HOTRADAR_SESSION_DIR", str(tmp_path))
     monkeypatch.setenv("HOTRADAR_SESSION_KEY", Fernet.generate_key().decode())
-    monkeypatch.setenv("HOTRADAR_SESSION_ADMIN_TOKEN", TOKEN)
     monkeypatch.setattr(session_store, "ROOT", tmp_path)
 
 
@@ -69,17 +67,34 @@ def test_board_authorization_validates_before_replacing_session(portable, databa
             return sample()
 
     monkeypatch.setattr(platform_sessions, "WeiboWuxiCollector", Candidate)
-    path = "/api/v1/platform-sessions/weibo-wuxi"
-    auth = {"Authorization": "Bearer " + TOKEN}
+    cookies = credential()
+
+    async def open_page(_self, _url):
+        pass
+
+    async def read_cookies(_self):
+        return cookies
+
+    monkeypatch.setattr(LoginBrowser, "open", open_page)
+    monkeypatch.setattr(LoginBrowser, "cookies", read_cookies)
+    path = "/api/v1/platform-sessions/browser/weibo-wuxi/"
     with TestClient(app) as client:
-        assert client.post(path, json=credential()).status_code == 401
-        assert client.post(path, json=credential(), headers=auth).status_code == 200
-        response = client.post(path, json=credential("rejected"), headers=auth)
+        assert (
+            client.post("/api/v1/platform-sessions/weibo-wuxi", json=credential()).status_code
+            == 404
+        )
+        opened = client.post(path + "open").json()
+        auth = {"Authorization": "Bearer " + opened["access_key"]}
+        assert client.post(path + "verify", headers=auth).status_code == 200
+        opened = client.post(path + "open").json()
+        auth = {"Authorization": "Bearer " + opened["access_key"]}
+        cookies = credential("rejected")
+        response = client.post(path + "verify", headers=auth)
         assert response.status_code == 422 and response.json() == {"detail": "city_unverified"}
-        bad_domain = [{**credential()[0], "domain": "weibo.cn.invalid.example"}]
-        assert client.post(path, json=bad_domain, headers=auth).status_code == 400
+        cookies = [{**credential()[0], "domain": "weibo.cn.invalid.example"}]
+        assert client.post(path + "verify", headers=auth).status_code == 422
         result = client.get("/api/v1/platform-sessions")
-        assert "fixture-login" not in result.text and TOKEN not in result.text
+        assert "fixture-login" not in result.text and opened["access_key"] not in result.text
         assert result.json()["sources"]["weibo-wuxi"]["state"] == "saved"
     assert session_store.read_session("weibo-wuxi")["cookies"] == credential()
     with factory() as session:

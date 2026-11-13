@@ -6,6 +6,7 @@ import {
   Clock, ArrowUpRight, Star, X, ExternalLink, CalendarDays, PlugZap, ArrowLeft,
   Settings2, GripVertical, ArrowUp, ArrowDown, Pause, Play, KeyRound,
 } from "lucide-react";
+import { version } from "../../package.json";
 import type { Board, DashboardData, HotItem, Snapshot, SnapshotSummary } from "../lib/types";
 import { defaults, normalizePreferences, reorder, visibleBoards, selectedPlatformBoard, filterItems, type Preferences } from "../lib/workspace";
 import WorkspaceControls from "./workspace-controls";
@@ -54,7 +55,6 @@ export default function RadarWorkbench() {
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [preferenceError, setPreferenceError] = useState("");
   const { source, dark, favorites, query } = preferences;
-  const contentSource = source === "baidu" ? "all" : source;
   const [expanded, setExpanded] = useState<string[]>([]);
   const [boardDetail, setBoardDetail] = useState<Board | null>(null);
   const [history, setHistory] = useState<SnapshotSummary[]>([]);
@@ -199,12 +199,12 @@ export default function RadarWorkbench() {
           <header className="hr-topbar">
             <div className="hr-crumb">工作台 <span>/</span><strong>{current.name}</strong></div>
             <div className="hr-top-actions">{(view === "overview" || view === "contents" || (view === "following" && followingKind === "boards")) && <label className="hr-search"><Search /><input aria-label={view === "contents" ? "搜索已核查内容" : "搜索当前榜单"} type="search" maxLength={300}
-              placeholder={view === "contents" ? "搜索内容或作者" : "搜索当前热榜内容"} value={query} onChange={e => updatePreferences({ query: e.target.value })} /></label>}
+              placeholder={view === "contents" ? "搜索内容、作者或热搜话题" : "搜索当前热榜内容"} value={query} onChange={e => updatePreferences({ query: e.target.value })} /></label>}
               <button type="button" className="hr-icon-button" aria-label="切换深浅主题" onClick={() => savePreferences(favorites, !dark)}><SunMoon /></button>
               <span className="hr-demo-tag">M4 · 真实历史观察</span></div>
           </header>
           <section className="hr-page-heading"><div><div className="hr-overline">让热点更早被看见</div><h1>{current.name}</h1>
-            <p>{view === "overview" ? "汇集抖音、微博与百度热榜，保留原始榜位、源内指标和采样时间。" : view === "events" ? "关联跨平台热点，核对来源证据，保留人工修正与摘要依据。" : view === "trends" ? "观察真实采样中的榜位与源内指标，明确历史覆盖和数据缺口。" : view === "following" ? "持续观察关注的平台榜单和热点事件。" : view === "sources" ? "查看实际采集任务，管理各来源采集周期与启停。" : "查看已验证来源的具体内容、作者、发布时间、互动数与采样依据。"}</p></div>
+            <p>{view === "overview" ? "汇集抖音、微博与百度热榜，保留原始榜位、源内指标和采样时间。" : view === "events" ? "关联跨平台热点，核对来源证据，保留人工修正与摘要依据。" : view === "trends" ? "观察真实采样中的榜位与源内指标，明确历史覆盖和数据缺口。" : view === "following" ? "持续观察关注的平台榜单和热点事件。" : view === "sources" ? "查看实际采集任务，管理各来源采集周期与启停。" : "查看百度热搜话题，以及抖音、微博具体内容的互动数据。"}</p></div>
             <div className="hr-heading-actions">{!wall && view === "contents" && <a className="hr-button" href="/authorization"><KeyRound />采集授权</a>}<button type="button" className="hr-button" onClick={() => { setWall(!wall); if (!wall) updatePreferences({ dark: true }); }}>{wall ? <Shrink /> : <Expand />}{wall ? "返回工作台" : "大屏模式"}</button>
               <button className="hr-button" onClick={() => updatePreferences({ autoRefresh: !preferences.autoRefresh })}>{preferences.autoRefresh ? <Pause /> : <Play />}{preferences.autoRefresh ? "暂停自动刷新" : "恢复自动刷新"}</button>
               <button type="button" className="hr-button hr-button-primary" onClick={() => void refresh()} disabled={loading}><RefreshCw className={loading ? "is-spinning" : ""} />{loading ? "读取中" : "刷新视图"}</button></div></section>
@@ -248,35 +248,40 @@ export default function RadarWorkbench() {
                     <button className="hr-icon-button" aria-label={"刷新" + board.source_name + "视图"} disabled={cardLoading.includes(board.id)} onClick={() => void refreshCard(board.id)}><RefreshCw className={cardLoading.includes(board.id) ? "is-spinning" : ""} /></button></div>}
                 </div>
                 {cardId === "douyin-hot" && <div className="hr-board-tabs" role="group" aria-label="抖音榜单切换">
-                  {[["douyin-hot", "🔥 总榜单"], ["douyin-wuxi-app", "📍 无锡榜"], ["douyin-wuxi", "创作参考"]].map(([id, label]) => <button key={id} type="button" className={"hr-chip " + (preferences.douyinBoard === id ? "is-selected" : "")} aria-pressed={preferences.douyinBoard === id} onClick={() => { closeDetail(); updatePreferences({ douyinBoard: id as Preferences["douyinBoard"] }); }}>{label}</button>)}
+                  {[["douyin-hot", "🔥 抖音热榜"], ["douyin-wuxi-app", "📍 无锡榜"], ["douyin-creator-hot", "创作参考"]].map(([id, label]) => <button key={id} type="button" className={"hr-chip " + (preferences.douyinBoard === id ? "is-selected" : "")} aria-pressed={preferences.douyinBoard === id} onClick={() => { closeDetail(); updatePreferences({ douyinBoard: id as Preferences["douyinBoard"] }); }}>{label}</button>)}
                 </div>}
                 {cardId === "weibo-hot" && <div className="hr-board-tabs" role="group" aria-label="微博榜单切换">
                   {[["weibo-hot", "🔥 总榜单"], ["weibo-wuxi", "📍 无锡榜"]].map(([id, label]) => <button key={id} type="button" className={"hr-chip " + (preferences.weiboBoard === id ? "is-selected" : "")} aria-pressed={preferences.weiboBoard === id} onClick={() => { closeDetail(); updatePreferences({ weiboBoard: id as Preferences["weiboBoard"] }); }}>{label}</button>)}
                 </div>}
                 <div className="hr-board-caption"><span>{board.snapshot ? clock(board.snapshot.observed_at) + " 采样" : "当日暂无快照"}</span>
                   <span className={"hr-tag " + (date !== today() ? "" : board.state === "fresh" ? "is-green" : "is-orange")}>{date !== today() ? "历史记录" : labels[board.state]}{board.snapshot?.from_cache ? " · 上游缓存" : ""}</span></div>
-                {board.id === "douyin-wuxi" && <div className="hr-board-warning" role="note">来源为抖音创作者中心，仅作创作参考。查看 App 同款城市榜请切换“📍 无锡榜”，两者历史独立保存。</div>}
-                {board.latest_run?.error_code && <div className="hr-board-warning">最近采集：{board.latest_run.error_code === "session_required" ? <>需要更新登录会话{!wall && <> · <a href="/authorization">采集授权</a></>}</> : board.latest_run.error_code === "city_unverified" ? (board.id === "douyin-wuxi-app" ? "服务器返回的榜单未通过无锡身份校验，请检查服务器网络出口" : "城市未确认为无锡，请在官方同城页重新选择无锡") : board.latest_run.error_code === "partial_parse" ? "部分条目未能解析" : "失败，保留历史快照"}</div>}
+                {board.id === "douyin-creator-hot" && <div className="hr-board-warning" role="note">抖音创作者中心全国创作热点榜。</div>}
+                {board.latest_run?.error_code && <div className="hr-board-warning">最近采集：{board.latest_run.error_code === "session_required" ? <>需要更新登录会话{!wall && <> · <a href={`/authorization#${board.id}`}>{board.id === "douyin-creator-hot" ? "授权创作者中心" : "采集授权"}</a></>}</> : board.latest_run.error_code === "city_unverified" ? (board.id === "douyin-wuxi-app" ? "服务器返回的榜单未通过无锡身份校验，请检查服务器网络出口" : "城市未确认为无锡，请在官方同城页重新选择无锡") : board.latest_run.error_code === "partial_parse" ? "部分条目未能解析" : "失败，保留历史快照"}</div>}
                 {cardErrors[board.id] && <div className="hr-board-warning" role="alert">{cardErrors[board.id]}</div>}
-                {board.snapshot && <div className="hr-result-count">匹配 {items.length} / 来源 {board.snapshot.item_count} 条 · {board.id === "douyin-wuxi" ? "按同城列表顺序" : "不改变源排名"}</div>}
+                {board.snapshot && <div className="hr-result-count">匹配 {items.length} / 来源 {board.snapshot.item_count} 条 · {board.id === "douyin-creator-hot" ? "按创作者中心列表顺序" : "不改变源排名"}</div>}
                 {!board.snapshot ? <div className="hr-empty"><Clock /><h2>该日期暂无采集记录</h2><p>{board.id.endsWith("-wuxi") ? "无锡榜从首次成功采样开始留存；未采集日期不补造。" : "请选取已有快照的日期；历史不会补造。"}</p><small>最近成功：{clock(board.last_success_at)}</small></div> :
                   board.snapshot.item_count === 0 ? <div className="hr-empty"><h2>来源返回空榜单</h2><p>此次请求成功，条目列表为空。</p></div> :
-                  <ol className="hr-board-list">{visible.map(item => <li key={item.id}><span title={board.id === "douyin-wuxi" ? "同城列表序号；平台原始榜位见详情" : "来源榜位"} className={"hr-rank " + ((board.id === "douyin-wuxi" ? item.display_order <= 3 : item.rank !== null && item.rank <= 3) ? "is-hot" : "")}>{board.id === "douyin-wuxi" ? item.display_order : item.rank ?? (item.is_pinned ? "置顶" : "—")}</span>
+                  <ol className="hr-board-list">{visible.map(item => <li key={item.id}><span title={board.id === "douyin-creator-hot" ? "创作者中心列表序号；平台原始榜位见详情" : "来源榜位"} className={"hr-rank " + ((board.id === "douyin-creator-hot" ? item.display_order <= 3 : item.rank !== null && item.rank <= 3) ? "is-hot" : "")}>{board.id === "douyin-creator-hot" ? item.display_order : item.rank ?? (item.is_pinned ? "置顶" : "—")}</span>
                     <div className="hr-row-title"><a className="hr-title-button" href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
                       {item.flags.length > 0 && <span className="hr-row-flags">{item.flags.join(" · ")}</span>}</div>
                     <span className="hr-row-metric">{metric(item.metrics[board.metric_name]?.value)}{item.rank_change !== null && item.rank_change !== 0 && <small className={item.rank_change > 0 ? "hr-positive" : ""}>{item.rank_change > 0 ? "↑ " : "↓ "}{Math.abs(item.rank_change)}</small>}</span>
                     <button type="button" className="hr-row-details" aria-label={"查看详情：" + item.title} onClick={() => { closeDetail(); setSelectedItem({ item, board }); }}><ArrowUpRight /></button>
                   </li>)}{items.length === 0 && <li>没有匹配的已采集条目</li>}</ol>}
-                <div className="hr-board-footer"><small>{board.id === "weibo-wuxi" && <>官方无锡同城热搜 · 非仅本地事件<br /></>}{board.id === "douyin-wuxi-app" && <>抖音原生无锡榜 · 官方热榜来源<br />历史始于实际首次采样<br /></>}{board.id === "douyin-wuxi" && <>创作者中心顺序 · 原始榜位保留在详情<br /></>}{board.metric_label} · 非播放量<br />箭头对比前次可比采样榜位{board.source_id === "weibo" && <><br />原文可能需要微博登录</>}</small><button type="button" className="hr-link-button" onClick={() => void openBoard(board)}>历史快照 <ArrowUpRight /></button></div>
+                <div className="hr-board-footer"><small>{board.id === "weibo-wuxi" && <>官方无锡同城热搜 · 非仅本地事件<br /></>}{board.id === "douyin-wuxi-app" && <>抖音搜索热榜 · 无锡城市榜<br />历史始于实际首次采样<br /></>}{board.id === "douyin-creator-hot" && <>创作者中心顺序 · 原始榜位保留在详情<br /></>}{board.metric_label} · 非播放量<br />箭头对比前次可比采样榜位{board.source_id === "weibo" && <><br />原文可能需要微博登录</>}</small><button type="button" className="hr-link-button" onClick={() => void openBoard(board)}>历史快照 <ArrowUpRight /></button></div>
                 {items.length > 15 && <button className="hr-show-all" onClick={() => setExpanded(showAll ? expanded.filter(x => x !== board.id) : [...expanded, board.id])}>{showAll ? "收起榜单" : "展开全部 " + items.length + " 条"}</button>}
               </article>;
             })}
           </div>}
           {(view === "overview" || (view === "following" && followingKind === "boards")) && data && boards.length === 0 && <div className="hr-empty"><Bookmark /><h2>当前分组与平台筛选下没有榜单</h2><p>调整分组成员、平台筛选或关注清单；这不代表来源没有热点。</p><button className="hr-button" onClick={() => { setView("overview"); updatePreferences({ activeGroup: "all", source: "all" }); }}>查看全部平台</button></div>}
           {view === "sources" && <SourceManager onChange={() => void refresh()} autoRefresh={preferences.autoRefresh} />}
-          {view === "contents" && <><div className="hr-category-row">{[["all", "全部平台"], ["douyin", "抖音"], ["weibo", "微博"]].map(([id, name]) => <button key={id} className={"hr-chip " + (contentSource === id ? "is-selected" : "")} onClick={() => updatePreferences({ source: id })}>{name}</button>)}</div><ContentPool date={date} source={contentSource} query={query} refreshKey={data?.read_at || ""} /></>}
+          {view === "contents" && <>
+            <div className="hr-category-row">{[["all", "全部平台"], ["douyin", "抖音"], ["weibo", "微博"], ["baidu", "百度"]].map(([id, name]) => <button key={id} className={"hr-chip " + (source === id ? "is-selected" : "")} aria-pressed={source === id} onClick={() => updatePreferences({ source: id })}>{name}</button>)}</div>
+            <ContentPool date={date} source={source} query={query} refreshKey={data?.read_at || ""}
+              baidu={data?.selected_date === date ? data.boards.find(board => board.id === "baidu-hot") : undefined}
+              boardError={error} onOpenTopic={(item, board) => { closeDetail(); setSelectedItem({ item, board }); }} />
+          </>}
           <div className="hr-insight"><Database /><div><strong>每一次榜单变化，都有原始快照可追溯</strong><p>{data?.first_observed_at ? "实际留存始于 " + clock(data.first_observed_at) + "。未采集日期不补值。" : "采集尚未成功时，页面保留明确的来源状态。"}</p></div></div>
-          <footer className="hr-footer"><span>HotRadar · MCN 热点情报</span><span>抖音 / 微博 / 百度 · 来源指标不可跨平台相加</span></footer>
+          <footer className="hr-footer"><span>HotRadar · MCN 热点情报 · v{version}</span><span>抖音 / 微博 / 百度 · 来源指标不可跨平台相加</span></footer>
         </main>
       </div>
       {(selectedItem || boardDetail) && <div className="hr-detail-layer"><button className="hr-detail-backdrop" tabIndex={-1} aria-label="关闭详情背景" onClick={closeDetail} /><section ref={drawer} className="hr-drawer" role="dialog" aria-modal="true" aria-label={selectedItem ? "条目详情" : "历史快照"} onKeyDown={e => {

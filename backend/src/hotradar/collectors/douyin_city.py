@@ -1,4 +1,4 @@
-"""Wuxi topics from the normal Creator Center city billboard, never a keyword filter."""
+"""National and Wuxi topic boards from the official Douyin Creator Center."""
 
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -11,6 +11,8 @@ from hotradar.collectors.types import CollectedItem, CollectionBatch, Collection
 from hotradar.session_store import client_cookies
 
 VERSION = "douyin-wuxi-v1"
+NATIONAL_BOARD = "douyin-creator-hot"
+NATIONAL_VERSION = "douyin-creator-hot-v1"
 BASE = "https://creator.douyin.com/web/api/creator/material/center/"
 PAGE = "https://creator.douyin.com/creator-micro/creative-guidance"
 COMMON = {"aid": "2906", "app_name": "aweme_creator_platform", "device_platform": "web"}
@@ -21,6 +23,12 @@ PARAMS = {
     "billboard_tag": "0",
     "hot_search_type": "2",
     "city_code": str(CITY["code"]),
+}
+NATIONAL_PARAMS = {
+    **COMMON,
+    "billboard_type": "2",
+    "billboard_tag": "0",
+    "hot_search_type": "1",
 }
 
 
@@ -34,12 +42,19 @@ def accepted(payload):
 
 
 def parse_wuxi(payload, observed_at, city):
-    accepted(payload)
     if city != CITY:
         raise CollectionError("city_unverified", "Wuxi city configuration was not verified.")
+    return parse_creator_board(payload, observed_at, city=city)
+
+
+def parse_creator_board(payload, observed_at, *, city=None):
+    accepted(payload)
+    metric = "city_heat" if city else "topic_heat"
+    unit = "同城话题热度" if city else "创作热点热度"
+    board_name = "无锡同城榜" if city else "全国创作热点榜"
     rows = payload.get("item_list")
     if not isinstance(rows, list):
-        raise CollectionError("invalid_shape", "City topic list is missing.")
+        raise CollectionError("invalid_shape", "Creator Center topic list is missing.")
     items, business, seen = [], [], set()
     rejected = 0
     for index, row in enumerate(rows):
@@ -75,12 +90,13 @@ def parse_wuxi(payload, observed_at, city):
                 source_rank=rank if rank and rank > 0 else None,
                 display_order=index + 1,
                 metrics={
-                    "city_heat": {
+                    metric: {
                         "value": optional_count(row.get("hot_score")),
-                        "unit": "同城话题热度",
+                        "unit": unit,
                         "provider": "douyin-creator",
                         "definition": (
-                            "抖音创作者中心无锡同城榜 hot_score 原值，非播放量；rank 保留来源原值"
+                            f"抖音创作者中心{board_name} hot_score 原值，非播放量。"
+                            "rank 保留来源原值"
                         ),
                     }
                 },
@@ -88,7 +104,7 @@ def parse_wuxi(payload, observed_at, city):
             )
         )
     if rows and not items:
-        raise CollectionError("parse_failed", "All city topics failed validation.")
+        raise CollectionError("parse_failed", "All Creator Center topics failed validation.")
     updated = None
     try:
         updated = (
@@ -101,12 +117,15 @@ def parse_wuxi(payload, observed_at, city):
     return CollectionBatch(
         items=items,
         observed_at=observed_at,
-        parser_version=VERSION,
+        parser_version=VERSION if city else NATIONAL_VERSION,
         upstream_updated_at=updated,
         rejected_count=rejected,
         raw_payload={
-            "request": {"endpoint": BASE + "billboard/", "params": PARAMS},
-            "city": city,
+            "request": {
+                "endpoint": BASE + "billboard/",
+                "params": PARAMS if city else NATIONAL_PARAMS,
+            },
+            **({"city": city} if city else {"region": "national"}),
             "response": {
                 "status_code": 0,
                 "update_time": payload.get("update_time"),
@@ -117,6 +136,9 @@ def parse_wuxi(payload, observed_at, city):
 
 
 class DouyinWuxiCollector:
+    scope = "douyin-wuxi"
+    city = CITY
+
     def __init__(self, timeout=20, transport=None, cookies=None):
         self.timeout, self.transport, self.cookies = timeout, transport, cookies
 
@@ -125,7 +147,7 @@ class DouyinWuxiCollector:
             cookies = (
                 self.cookies
                 if self.cookies is not None
-                else client_cookies("douyin", scope="douyin-wuxi")
+                else client_cookies("douyin", scope=self.scope)
             )
         except (RuntimeError, ValueError, OSError):
             raise CollectionError(
@@ -139,18 +161,21 @@ class DouyinWuxiCollector:
                 follow_redirects=False,
                 headers={"User-Agent": "Mozilla/5.0", "Referer": PAGE},
             ) as client:
-                config = await client.get(BASE + "config/", params=COMMON)
-                config.raise_for_status()
-                configuration = config.json()
-                accepted(configuration)
-                cities = configuration.get("city_code_list")
-                if not isinstance(cities, list) or CITY not in cities:
-                    raise CollectionError(
-                        "city_unverified", "Wuxi is absent from source city list."
-                    )
-                response = await client.get(BASE + "billboard/", params=PARAMS)
+                if self.city:
+                    config = await client.get(BASE + "config/", params=COMMON)
+                    config.raise_for_status()
+                    configuration = config.json()
+                    accepted(configuration)
+                    cities = configuration.get("city_code_list")
+                    if not isinstance(cities, list) or self.city not in cities:
+                        raise CollectionError(
+                            "city_unverified", "Wuxi is absent from source city list."
+                        )
+                response = await client.get(
+                    BASE + "billboard/", params=PARAMS if self.city else NATIONAL_PARAMS
+                )
                 response.raise_for_status()
-                batch = parse_wuxi(response.json(), datetime.now(UTC), CITY)
+                batch = parse_creator_board(response.json(), datetime.now(UTC), city=self.city)
                 return replace(batch, from_cache=bool(optional_count(response.headers.get("Age"))))
         except httpx.HTTPStatusError as exc:
             if exc.response.is_redirect or exc.response.status_code in {401, 403}:
@@ -158,11 +183,16 @@ class DouyinWuxiCollector:
                     "session_required", "Creator Center session rejected."
                 ) from None
             raise CollectionError(
-                "http_error", f"City source HTTP {exc.response.status_code}."
+                "http_error", f"Creator Center HTTP {exc.response.status_code}."
             ) from None
         except httpx.RequestError as exc:
             raise CollectionError("network_error", type(exc).__name__) from None
         except ValueError:
             raise CollectionError(
-                "invalid_json", "City source did not return business JSON."
+                "invalid_json", "Creator Center did not return business JSON."
             ) from None
+
+
+class DouyinCreatorNationalCollector(DouyinWuxiCollector):
+    scope = NATIONAL_BOARD
+    city = None

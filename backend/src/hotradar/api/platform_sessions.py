@@ -1,25 +1,27 @@
 from hmac import compare_digest
 from importlib.util import find_spec
 from json import loads
-from os import environ
 from time import monotonic
 from typing import Annotated, Literal
 from uuid import uuid4
 
-from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from starlette.requests import ClientDisconnect
 
 from hotradar.collection import collect_board
+from hotradar.collectors.douyin_city import (
+    NATIONAL_BOARD,
+    DouyinCreatorNationalCollector,
+    DouyinWuxiCollector,
+)
 from hotradar.collectors.douyin_city import PAGE as CREATOR_PAGE
-from hotradar.collectors.douyin_city import DouyinWuxiCollector
 from hotradar.collectors.platforms import PlatformCollector
 from hotradar.collectors.types import CollectionError
 from hotradar.collectors.weibo_city import PAGE as WEIBO_CITY_PAGE
 from hotradar.collectors.weibo_city import WeiboWuxiCollector
-from hotradar.config import PROJECT_ROOT, get_settings
+from hotradar.config import get_settings
 from hotradar.content_collection import collect_douyin, collect_weibo, fetch_douyin, fetch_weibo
 from hotradar.platform_browser import (
     HEIGHT,
@@ -30,7 +32,6 @@ from hotradar.platform_browser import (
     start_browser,
 )
 from hotradar.session_store import (
-    MAX_SESSION_BYTES,
     SCOPES,
     cookie_jar,
     save_portable,
@@ -42,6 +43,7 @@ from hotradar.session_store import (
 router = APIRouter(prefix="/api/v1/platform-sessions")
 LOGIN_PAGES = {
     "douyin-hot": "https://www.douyin.com/",
+    NATIONAL_BOARD: CREATOR_PAGE,
     "douyin-wuxi": CREATOR_PAGE,
     "douyin-content": "https://www.douyin.com/jingxuan",
     "weibo-wuxi": WEIBO_CITY_PAGE,
@@ -64,27 +66,12 @@ CONTENT = {
 }
 
 
-def operator_token():
-    load_dotenv(PROJECT_ROOT / ".env")
-    return environ.get("HOTRADAR_SESSION_ADMIN_TOKEN", "")
-
-
-def import_available(token):
-    if len(token) < 32:
-        return False
+def storage_configured():
     try:
         session_cipher()
     except RuntimeError:
         return False
     return True
-
-
-def require_operator(request):
-    token = operator_token()
-    if not import_available(token):
-        raise HTTPException(503, "import_not_configured")
-    if not bearer_matches(request, token):
-        raise HTTPException(401, "invalid_operator_token")
 
 
 def bearer_matches(request, key):
@@ -95,10 +82,10 @@ def bearer_matches(request, key):
 
 @router.get("")
 def status():
-    configured = import_available(operator_token())
+    configured = storage_configured()
     return JSONResponse(
         {
-            "import_available": configured,
+            "storage_configured": configured,
             "browser_available": configured and find_spec("playwright") is not None,
             "sources": {
                 scope: {"login_url": LOGIN_PAGES[scope], **session_status(scope)}
@@ -109,28 +96,16 @@ def status():
     )
 
 
-async def read_json(request, limit, invalid, *, too_large=None):
+async def read_input(request):
     body = bytearray()
     try:
         async for chunk in request.stream():
-            if len(body) + len(chunk) > limit:
-                raise HTTPException(413, too_large or invalid)
+            if len(body) + len(chunk) > 2048:
+                raise HTTPException(413, "invalid_browser_input")
             body.extend(chunk)
         return loads(body)
     except (ValueError, RecursionError, ClientDisconnect):
-        raise HTTPException(400, invalid) from None
-
-
-async def imported_cookies(request, platform):
-    data = await read_json(
-        request, MAX_SESSION_BYTES, "invalid_session", too_large="session_too_large"
-    )
-    try:
-        if isinstance(data, dict):
-            data = data.get("cookies")
-        return validate_cookies(platform, data)
-    except ValueError:
-        raise HTTPException(400, "invalid_session") from None
+        raise HTTPException(400, "invalid_browser_input") from None
 
 
 class VerifiedBoardImport:
@@ -143,15 +118,9 @@ class VerifiedBoardImport:
         return self.batch
 
 
-@router.post("/{scope}")
-async def import_session(scope: str, request: Request):
-    if scope not in SCOPES:
-        raise HTTPException(404, "unknown_scope")
-    require_operator(request)
-    if request.headers.get("content-type", "").split(";", 1)[0] != "application/json":
-        raise HTTPException(415, "invalid_session")
-    cookies = await imported_cookies(request, SCOPES[scope])
-    return await verify_session(scope, cookies)
+class SessionVerificationError(HTTPException):
+    def __init__(self, code):
+        super().__init__(422, code)
 
 
 async def verify_session(scope, cookies):
@@ -165,13 +134,13 @@ async def verify_session(scope, cookies):
         except (OSError, RuntimeError):
             raise CollectionError("session_storage_failed", "Could not save session.") from None
 
-    key = "session-import:" + uuid4().hex
+    key = "browser-auth:" + uuid4().hex
     if scope in CONTENT:
         collect, fetch = CONTENT[scope]
         try:
             batch = await fetch(verify=True, cookies=jar)
         except CollectionError as exc:
-            raise HTTPException(422, exc.code) from None
+            raise SessionVerificationError(exc.code) from None
 
         async def store_verified_batch(*, verify):
             store()
@@ -182,6 +151,8 @@ async def verify_session(scope, cookies):
         timeout = get_settings().timeout
         if scope == "douyin-wuxi":
             collector = DouyinWuxiCollector(timeout=timeout, cookies=jar)
+        elif scope == NATIONAL_BOARD:
+            collector = DouyinCreatorNationalCollector(timeout=timeout, cookies=jar)
         elif scope == "weibo-wuxi":
             collector = WeiboWuxiCollector(timeout=timeout, cookies=jar)
         else:
@@ -189,7 +160,7 @@ async def verify_session(scope, cookies):
         try:
             board_batch = await collector.collect()
         except CollectionError as exc:
-            raise HTTPException(422, exc.code) from None
+            raise SessionVerificationError(exc.code) from None
         if not board_batch.items:
             raise HTTPException(422, "verification_incomplete")
         result = await collect_board(
@@ -214,9 +185,33 @@ async def verify_session(scope, cookies):
     )
 
 
+async def verify_browser_session(browser, scope):
+    async def credentials():
+        try:
+            return validate_cookies(SCOPES[scope], await browser.cookies())
+        except ValueError:
+            raise HTTPException(422, "session_unavailable") from None
+
+    cookies = await credentials()
+    try:
+        return await verify_session(scope, cookies)
+    except SessionVerificationError as exc:
+        retry_codes = {"session_required", "upstream_rejected"}
+        if SCOPES[scope] != "douyin" or exc.detail not in retry_codes:
+            raise
+    await browser.refresh_session(BROWSER_PAGES[scope])
+    refreshed = await credentials()
+    try:
+        return await verify_session(scope, refreshed)
+    except SessionVerificationError as exc:
+        if exc.detail in retry_codes:
+            raise HTTPException(422, "collector_session_rejected") from None
+        raise
+
+
 class PointerInput(BaseModel):
     kind: Literal["pointer"]
-    phase: Literal["down", "move", "up"]
+    phase: Literal["click", "down", "move", "up"]
     x: int = Field(ge=0, lt=WIDTH, strict=True)
     y: int = Field(ge=0, lt=HEIGHT, strict=True)
 
@@ -256,7 +251,7 @@ BROWSER_INPUT = TypeAdapter(
 
 
 async def browser_input(browser, request):
-    data = await read_json(request, 2048, "invalid_browser_input")
+    data = await read_input(request)
     try:
         action = BROWSER_INPUT.validate_python(data)
     except ValidationError:
@@ -266,7 +261,7 @@ async def browser_input(browser, request):
     elif isinstance(action, KeyInput):
         await browser.page().keyboard.press(action.key)
     elif isinstance(action, TextInput):
-        await browser.page().keyboard.insert_text(action.text)
+        await browser.page().keyboard.type(action.text)
     else:
         await browser.page().mouse.wheel(0, action.delta)
 
@@ -279,8 +274,12 @@ async def browser_action(
 ):
     if scope not in SCOPES:
         raise HTTPException(404, "unknown_scope")
+    # Browser requests go through the same-origin workbench proxy.
+    if "origin" in request.headers:
+        raise HTTPException(403, "origin_not_allowed")
     if action == "open":
-        require_operator(request)
+        if not storage_configured():
+            raise HTTPException(503, "storage_not_configured")
         try:
             browser = await start_browser(scope, BROWSER_PAGES[scope])
         except BrowserLoginError as exc:
@@ -318,17 +317,16 @@ async def browser_action(
                 await browser.navigate(CITY_PAGES[scope])
             else:
                 await browser.release_pointer()
-                cookies = validate_cookies(SCOPES[scope], await browser.cookies())
+                result = await verify_browser_session(browser, scope)
         except HTTPException:
             raise
         except BrowserLoginError as exc:
             raise HTTPException(422, exc.code) from None
-        except ValueError:
-            raise HTTPException(422, "session_required") from None
         except Exception:
-            raise HTTPException(502, "browser_interaction_failed") from None
+            if action != "verify":
+                raise HTTPException(502, "browser_interaction_failed") from None
+            raise
         if action != "verify":
             return Response(status_code=204, headers=NO_STORE)
-        result = await verify_session(scope, cookies)
     await close_browser(browser)
     return result

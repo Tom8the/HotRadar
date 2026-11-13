@@ -2,7 +2,14 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from hotradar.collectors.douyin_city import CITY, PARAMS, DouyinWuxiCollector, parse_wuxi
+from hotradar.collectors.douyin_city import (
+    CITY,
+    NATIONAL_VERSION,
+    PARAMS,
+    DouyinCreatorNationalCollector,
+    DouyinWuxiCollector,
+    parse_wuxi,
+)
 from hotradar.collectors.types import CollectionError
 
 NOW = datetime(2026, 10, 15, 2, 0, tzinfo=UTC)
@@ -49,6 +56,28 @@ def test_city_partial_keeps_rejected_business_evidence_and_distinguishes_empty()
     assert parse_wuxi({"status_code": 0, "item_list": []}, NOW, CITY).items == []
     with pytest.raises(CollectionError, match="failed validation"):
         parse_wuxi({"status_code": 0, "item_list": [{"title": "缺少ID"}]}, NOW, CITY)
+
+
+@pytest.mark.asyncio
+async def test_creator_national_board_requests_national_scope_and_keeps_own_metric():
+    def respond(request):
+        assert request.url.host == "creator.douyin.com"
+        assert request.url.path.endswith("/billboard/")
+        assert request.url.params["hot_search_type"] == "1"
+        assert "city_code" not in request.url.params
+        payload = sample()
+        payload["item_list"][0]["rank"] = 1
+        return httpx.Response(200, json=payload)
+
+    batch = await DouyinCreatorNationalCollector(
+        cookies={}, transport=httpx.MockTransport(respond)
+    ).collect()
+    assert batch.parser_version == NATIONAL_VERSION
+    assert batch.raw_payload["region"] == "national"
+    assert "city" not in batch.raw_payload
+    assert batch.items[0].source_rank == 1
+    assert batch.items[0].metrics["topic_heat"]["value"] == 0
+    assert batch.items[1].metrics["topic_heat"]["value"] is None
 
 
 @pytest.mark.asyncio
@@ -108,6 +137,11 @@ def test_city_api_and_snapshots_are_separate_from_national(event_db, monkeypatch
         session.flush()
         persist_batch(session, run, parse_wuxi(sample(), NOW, CITY))
     with TestClient(main.app) as client:
+        managed_ids = {
+            board["id"] for board in client.get("/api/v1/source-management").json()["sources"]
+        }
+        assert "douyin-wuxi" not in managed_ids
+        assert {"douyin-wuxi-app", "douyin-creator-hot"} <= managed_ids
         board = client.get("/api/v1/boards?date=2026-10-15&board=douyin-wuxi").json()["board"]
         assert board["source_id"] == "douyin" and board["provider"] == "douyin-creator"
         assert len(board["snapshot"]["items"]) == 2

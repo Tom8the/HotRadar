@@ -48,12 +48,13 @@ test("groups and source filter intersect without changing underlying source orde
   assert.equal(boards[0].id, "douyin-hot");
 });
 
-test("Douyin city selection persists without adding a duplicate platform card or losing groups", () => {
+test("Existing creator tab selection switches to the national creator board", () => {
   const p = normalizePreferences({ douyinBoard: "douyin-wuxi", favorites: ["douyin-hot"], groups: [{id:"g_local",name:"本地",boardIds:["douyin-hot"]}], activeGroup:"g_local" });
-  assert.equal(p.douyinBoard, "douyin-wuxi");
+  assert.equal(p.douyinBoard, "douyin-creator-hot");
   assert.equal(normalizePreferences({douyinBoard:"beijing"}).douyinBoard, "douyin-hot");
   const boards = [{id:"douyin-hot",source_id:"douyin"},{id:"douyin-wuxi",source_id:"douyin"},{id:"weibo-hot",source_id:"weibo"}] as Board[];
   assert.deepEqual(visibleBoards(boards,p,true).map(b=>b.id),["douyin-hot"]);
+  assert.equal(selectedPlatformBoard(boards[0],boards,p).snapshot,null);
 });
 
 test("Weibo city preference remains independent from Douyin and platform groups", () => {
@@ -79,9 +80,9 @@ test("missing Weibo city data cannot fall back to a national snapshot or session
 test("native Douyin city board persists separately and cannot display creator or national data as fallback", () => {
   const p = normalizePreferences({douyinBoard:"douyin-wuxi-app",favorites:["douyin-hot"]});
   assert.equal(p.douyinBoard,"douyin-wuxi-app");
-  assert.equal(normalizePreferences({douyinBoard:"douyin-wuxi"}).douyinBoard,"douyin-wuxi");
+  assert.equal(normalizePreferences({douyinBoard:"douyin-wuxi"}).douyinBoard,"douyin-creator-hot");
   const national = {id:"douyin-hot",source_id:"douyin",snapshot:{items:[item("全国话题",1)]},latest_run:{id:"national"},last_success_at:"2026-10-19",enabled:true} as Board;
-  const creator = {...national,id:"douyin-wuxi",snapshot:{items:[item("创作话题",1082)]}} as Board;
+  const creator = {...national,id:"douyin-creator-hot",snapshot:{items:[item("创作话题",1)]}} as Board;
   const missing = selectedPlatformBoard(national,[national,creator],p);
   assert.equal(missing.id,"douyin-wuxi-app"); assert.equal(missing.snapshot,null);
   assert.equal(missing.latest_run,null); assert.equal(missing.last_success_at,null);

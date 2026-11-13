@@ -4,14 +4,31 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, StrictBool, model_validator
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from hotradar.api.queries import dashboard
-from hotradar.db.models import Board, BoardSnapshot, CollectionRun, SourceSettingChange
+from hotradar.collectors.douyin_city import NATIONAL_BOARD
+from hotradar.content_collection import source_status
+from hotradar.db.models import (
+    Board,
+    BoardSnapshot,
+    CollectionRun,
+    ContentSourceSetting,
+    SourceSettingChange,
+)
 from hotradar.db.session import session_factory
 
 router = APIRouter()
-BOARD_IDS = {"weibo-hot", "douyin-hot", "douyin-wuxi", "douyin-wuxi-app", "weibo-wuxi", "baidu-hot"}
+BOARD_IDS = {
+    "weibo-hot",
+    "douyin-hot",
+    NATIONAL_BOARD,
+    "douyin-wuxi",
+    "douyin-wuxi-app",
+    "weibo-wuxi",
+    "baidu-hot",
+}
+MANAGED_BOARD_IDS = BOARD_IDS - {"douyin-wuxi"}
 
 
 class SourceSettings(BaseModel):
@@ -34,7 +51,7 @@ def source_management():
         current = dashboard(session, now.astimezone(ZoneInfo("Asia/Shanghai")).date())
         result = []
         for board in current["boards"]:
-            if board["id"] not in BOARD_IDS:
+            if board["id"] not in MANAGED_BOARD_IDS:
                 continue
             runs = list(
                 session.scalars(
@@ -98,17 +115,22 @@ def source_management():
             )
         return {
             "sources": result,
+            "content_sources": source_status(session, ("douyin",)),
             "read_at": now,
             "coverage_note": "统计最近24小时已记录任务；采样不足24小时不代表连续稳定性通过。",
         }
 
 
-@router.patch("/api/v1/boards/{board_id}/settings")
-def change_settings(board_id: str, settings: SourceSettings, request: Request):
+def require_local_origin(request: Request):
     # Direct browser requests from foreign sites cannot mutate the loopback API.
     origin = request.headers.get("origin")
     if origin and origin not in {"http://127.0.0.1:18811", "http://127.0.0.1:18810"}:
         raise HTTPException(403, "Local workspace only.")
+
+
+@router.patch("/api/v1/boards/{board_id}/settings")
+def change_settings(board_id: str, settings: SourceSettings, request: Request):
+    require_local_origin(request)
     if board_id not in BOARD_IDS:
         raise HTTPException(404, "Board not available in this release.")
     with session_factory().begin() as session:
@@ -129,3 +151,54 @@ def change_settings(board_id: str, settings: SourceSettings, request: Request):
             "changed": before != after,
             "note": "已暂停的来源可能仍完成在途请求，历史快照保留。",
         }
+
+
+@router.patch("/api/v1/content-sources/douyin/settings")
+def change_douyin_content_settings(settings: SourceSettings, request: Request):
+    require_local_origin(request)
+    with session_factory().begin() as session:
+        locked = session.scalar(
+            text("SELECT pg_try_advisory_xact_lock(hashtext(:key))"),
+            {"key": "content-worker:douyin"},
+        )
+        if not locked:
+            raise HTTPException(409, "collection_busy")
+        config = session.get(ContentSourceSetting, "douyin", with_for_update=True)
+        if config is None:
+            raise HTTPException(404, "Content source not registered.")
+        before = {"enabled": config.enabled, "interval_seconds": config.interval_seconds}
+        if settings.enabled is True and not config.enabled:
+            status = source_status(session, ("douyin",))[0]
+            last_run = status["last_run"] or {}
+            if (
+                not status["verified_at"]
+                or not status["session_saved_locally"]
+                or last_run.get("error_code") in {"session_required", "upstream_rejected"}
+            ):
+                raise HTTPException(409, "session_required")
+        if settings.enabled is not None:
+            config.enabled = settings.enabled
+        if settings.interval_seconds is not None:
+            config.interval_seconds = settings.interval_seconds
+        after = {"enabled": config.enabled, "interval_seconds": config.interval_seconds}
+        if before != after:
+            action = (
+                "interval"
+                if before["enabled"] == after["enabled"]
+                else ("resume" if config.enabled else "pause")
+            )
+            config.verification = {
+                **config.verification,
+                "controls": [
+                    *config.verification.get("controls", []),
+                    {
+                        "action": action,
+                        "at": datetime.now(UTC).isoformat(),
+                        "before_enabled": before["enabled"],
+                        "after_enabled": after["enabled"],
+                        "before_interval_seconds": before["interval_seconds"],
+                        "after_interval_seconds": after["interval_seconds"],
+                    },
+                ],
+            }
+        return {"source_id": "douyin", **after, "changed": before != after}
