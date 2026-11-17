@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isLocalWorkspaceOrigin } from "../../../lib/local-origin";
+import { publicOriginAllowed } from "../../../lib/public-origin";
 
 export const dynamic = "force-dynamic";
 const base = process.env.HOTRADAR_API_URL ?? "http://127.0.0.1:18810";
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
   const deployed = process.env.HOTRADAR_PUBLIC_ORIGIN;
   const allowed = deployed
-    ? deployed.startsWith("https://") && origin === deployed
+    ? publicOriginAllowed(deployed, origin)
     : isLocalWorkspaceOrigin(request.nextUrl.protocol, request.headers.get("host"), origin);
   if (!allowed) return failure("origin_not_allowed", 403);
   const scope = request.nextUrl.searchParams.get("source");
